@@ -1,0 +1,23 @@
+{
+  "name": "api-gateway-backend",
+  "version": "1.0.0",
+  "description": "API Gateway Backend Service",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "node test_client.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "morgan": "^1.10.0",
+    "sm-crypto": "^0.3.13",
+    "ioredis": "^5.3.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.0.0",
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  }
+}
