@@ -109,8 +109,30 @@ openresty/nginx/uwsgi_temp/
 # OpenResty pid files
 openresty/nginx/*.pid
 
+# OpenResty configuration backup files (common on Debian)
+openresty/nginx/conf/*.bak
+openresty/nginx/conf/*.old
+
+# Lua compilation cache
+openresty/lualib/*.cache
+
 # IDE files
 .vscode/
 *.swp
 *.swo
 *~
+
+# OS generated files
+Thumbs.db
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Icon?
+*.lnk
+
+# Redis dump files
+dump.rdb
+appendonly.aof
