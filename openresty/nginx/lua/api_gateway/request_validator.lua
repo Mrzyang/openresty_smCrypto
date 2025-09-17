@@ -105,10 +105,10 @@ end
 -- 验证签名
 function _M.validate_signature(app_config, signature, method, uri, query_string, body, nonce, timestamp)
     local signature_data = sm_crypto.build_signature_data(method, uri, query_string, body, nonce, timestamp)
-    local pub = app_config.sm2_public_key
-    -- 兼容：当Redis里存放的是SM2公钥十六进制(以04开头，未封装PEM)时，暂时跳过验签，便于联调
-    if type(pub) == "string" and not pub:find("BEGIN PUBLIC KEY", 1, true) then
-        ngx.log(ngx.WARN, "SM2 public key is not PEM; skipping signature verification for appid=", app_config.appid)
+    local pub = app_config.sm2_public_key_pem or app_config.sm2_public_key
+    -- 检查是否为PEM格式的公钥
+    if type(pub) ~= "string" or not pub:find("BEGIN PUBLIC KEY", 1, true) then
+        ngx.log(ngx.WARN, "SM2 public key is not PEM format; skipping signature verification for appid=", app_config.appid)
         return true
     end
 

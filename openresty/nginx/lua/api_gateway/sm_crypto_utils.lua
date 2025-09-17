@@ -31,17 +31,31 @@ function _M.sm3_hash(data)
 end
 
 -- SM2签名
-function _M.sm2_sign(data, private_key_pem)
-    local priv_key, err = pkey.new(private_key_pem, {
-        type = "pr",
-        format = "PEM"
+function _M.sm2_sign(data, private_key)
+    -- 仅支持PEM格式的私钥
+    local key_format = "PEM"
+    local key_type = "pr"
+    
+    -- 检查是否为PEM格式
+    if not private_key:find("BEGIN PRIVATE KEY", 1, true) then
+        ngx.log(ngx.ERR, "私钥不是PEM格式")
+        return nil, "Private key is not in PEM format"
+    end
+    
+    ngx.log(ngx.DEBUG, "SM2签名 - 密钥格式: ", key_format, ", 密钥类型: ", key_type)
+    
+    local priv_key, err = pkey.new(private_key, {
+        type = key_type,
+        format = key_format
     })
     if not priv_key then
+        ngx.log(ngx.ERR, "加载私钥失败: ", err, ", 密钥格式: ", key_format, ", 密钥类型: ", key_type)
         return nil, "Failed to load private key: " .. (err or "unknown error")
     end
 
     local signature, err = priv_key:sign(data, "sm3")
     if not signature then
+        ngx.log(ngx.ERR, "签名数据失败: ", err)
         return nil, "Failed to sign data: " .. (err or "unknown error")
     end
 
@@ -49,22 +63,37 @@ function _M.sm2_sign(data, private_key_pem)
 end
 
 -- SM2验签
-function _M.sm2_verify(data, signature, public_key_pem)
-    local pub_key, err = pkey.new(public_key_pem, {
-        format = "PEM",
-        type = "pu"
+function _M.sm2_verify(data, signature, public_key)
+    -- 仅支持PEM格式的公钥
+    local key_format = "PEM"
+    local key_type = "pu"
+    
+    -- 检查是否为PEM格式
+    if not public_key:find("BEGIN PUBLIC KEY", 1, true) then
+        ngx.log(ngx.ERR, "公钥不是PEM格式")
+        return false, "Public key is not in PEM format"
+    end
+    
+    ngx.log(ngx.DEBUG, "SM2验签 - 密钥格式: ", key_format, ", 密钥类型: ", key_type)
+    
+    local pub_key, err = pkey.new(public_key, {
+        format = key_format,
+        type = key_type
     })
     if not pub_key then
+        ngx.log(ngx.ERR, "加载公钥失败: ", err, ", 密钥格式: ", key_format, ", 密钥类型: ", key_type)
         return false, "Failed to load public key: " .. (err or "unknown error")
     end
 
     local sig_bytes = ngx.decode_base64(signature)
     if not sig_bytes then
+        ngx.log(ngx.ERR, "Base64解码签名失败")
         return false, "Failed to decode signature"
     end
 
     local is_valid, err = pub_key:verify(sig_bytes, data, "sm3")
     if not is_valid then
+        ngx.log(ngx.ERR, "签名验证失败: ", err)
         return false, "Signature verification failed: " .. (err or "unknown error")
     end
 

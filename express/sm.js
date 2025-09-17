@@ -8,6 +8,64 @@ const sm2KeyPair = sm2.generateKeyPairHex();
 console.log('SM2 公钥:', sm2KeyPair.publicKey);
 console.log('SM2 私钥:', sm2KeyPair.privateKey);
 
+// --- 添加PEM格式转换函数（更标准的实现）---
+function hexToPem(privateKeyHex, publicKeyHex) {
+  // 构造SM2私钥的DER格式
+  // SEQUENCE (3 elem)
+  //   INTEGER 1
+  //   OCTET STRING (32 bytes)
+  //   [0] (1 elem) OBJECT IDENTIFIER 1.2.156.10197.1.301 sm2
+  //   [1] (1 elem) BIT STRING (65 bytes)
+  
+  // 构造私钥部分
+  const version = '020101'; // INTEGER 1
+  const privateKeyOctet = '0420' + privateKeyHex; // OCTET STRING with 32 bytes private key
+  const algorithmId = 'a00b06092a811ccf5501822d'; // [0] OBJECT IDENTIFIER sm2
+  const publicKeyContext = 'a144034200' + publicKeyHex; // [1] BIT STRING with public key
+  
+  // 构造完整的私钥DER
+  const privateKeySequence = version + privateKeyOctet + algorithmId + publicKeyContext;
+  const privateKeyLength = (privateKeySequence.length / 2).toString(16).padStart(2, '0');
+  const privateKeyDer = '30' + privateKeyLength + privateKeySequence;
+  
+  // 构造PEM格式的私钥
+  const privateKeyPem = '-----BEGIN PRIVATE KEY-----\n' +
+    Buffer.from(privateKeyDer, 'hex').toString('base64').match(/.{1,64}/g).join('\n') +
+    '\n-----END PRIVATE KEY-----';
+  
+  // 构造公钥部分
+  // SEQUENCE (2 elem)
+  //   SEQUENCE (2 elem)
+  //     OBJECT IDENTIFIER 1.2.156.10197.1.301 sm2
+  //     NULL
+  //   BIT STRING (65 bytes)
+  
+  const publicKeyAlgorithm = '301306072a811ccf5501822d06082a811ccf5501822d'; // SEQUENCE of algorithm
+  const publicKeyBitString = '034200' + publicKeyHex; // BIT STRING with public key
+  
+  // 构造完整的公钥DER
+  const publicKeySequence = publicKeyAlgorithm + publicKeyBitString;
+  const publicKeyLength = (publicKeySequence.length / 2).toString(16).padStart(4, '0');
+  const publicKeyDer = '30' + publicKeyLength + publicKeySequence;
+  
+  // 构造PEM格式的公钥
+  const publicKeyPem = '-----BEGIN PUBLIC KEY-----\n' +
+    Buffer.from(publicKeyDer, 'hex').toString('base64').match(/.{1,64}/g).join('\n') +
+    '\n-----END PUBLIC KEY-----';
+  
+  return {
+    privateKeyPem,
+    publicKeyPem
+  };
+}
+
+// --- 转换并打印PEM格式的密钥 ---
+const pemKeys = hexToPem(sm2KeyPair.privateKey, sm2KeyPair.publicKey);
+console.log('\nSM2 私钥 (PEM格式):');
+console.log(pemKeys.privateKeyPem);
+console.log('\nSM2 公钥 (PEM格式):');
+console.log(pemKeys.publicKeyPem);
+
 // --- SM2 签名和验签 ---
 const message = 'Hello, SM2!';
 

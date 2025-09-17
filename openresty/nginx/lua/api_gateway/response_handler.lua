@@ -23,16 +23,19 @@ end
 
 -- 对响应体签名
 function _M.sign_response_body(app_config, response_body)
+    ngx.log(ngx.DEBUG, "到达函数function _M.sign_response_body内部")
     if not response_body or response_body == "" then
         return ""
     end
-    -- 仅当私钥为PEM格式时才进行签名
-    local priv = app_config.sm2_private_key
-    if type(priv) ~= "string" or not priv:find("BEGIN PRIVATE KEY", 1, true) then
-        ngx.log(ngx.WARN, "SM2 private key is not PEM; skipping response signing for appid=", app_config.appid)
+    -- 使用网关签名私钥（仅支持PEM格式）
+    local priv = app_config.gateway_sm2_private_key_pem or app_config.sm2_private_key_pem
+    -- 仅支持PEM格式的私钥
+    if type(priv) ~= "string" then
+        ngx.log(ngx.WARN, "SM2 private key is not string; skipping response signing for appid=", app_config.appid)
         return ""
     end
     local signature, err = sm_crypto.sm2_sign(response_body, priv)
+    ngx.log(ngx.DEBUG, "函数function _M.sign_response_body内部签名结果:", signature)
     if not signature then
         ngx.log(ngx.ERR, "Failed to sign response body: ", err)
         return ""
