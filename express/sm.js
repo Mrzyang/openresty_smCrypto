@@ -24,16 +24,31 @@ const sm3Digest = sm3(message);
 console.log('SM3 哈希摘要:', sm3Digest);
 
 // --- SM4 密钥和 IV 生成 ---
-const sm4Key = '9123456789abcdeffedcba9876543210' // 可以为 16 进制串或字节数组，要求为 128 比特
-const sm4Iv = 'aedcba98765432100123456789abcdef';    // 可以为 16 进制串或字节数组，要求为 128 比特
+// 改为长度为16的字符串
+const sm4Key = '1234567890abcdef'; // 16字节字符串
+const sm4Iv = 'abcdef1234567890';  // 16字节字符串
+
+// 转换函数：将16字节字符串转换为32字符的十六进制字符串
+function convertToHex(keyOrIv) {
+    if (keyOrIv.length === 16) {
+        return Buffer.from(keyOrIv, 'utf-8').toString('hex');
+    } else if (keyOrIv.length === 32) {
+        return keyOrIv; // 已经是十六进制格式
+    } else {
+        // 其他情况，先调整长度再转换
+        const fixed = keyOrIv.length > 16 ? keyOrIv.substring(0, 16) : keyOrIv.padEnd(16, '\0');
+        return Buffer.from(fixed, 'utf-8').toString('hex');
+    }
+}
 
 // --- SM4 CBC 模式对称加密 ---
 const plaintext = 'This is a secret message';
 
 // 对称加密（CBC 模式）
-const ciphertext = sm4.encrypt(plaintext, sm4Key, sm4Iv); //默认用pkcs#7填充
+// 使用转换函数将16字节字符串转换为32字符的十六进制字符串
+const ciphertext = sm4.encrypt(plaintext, convertToHex(sm4Key), { mode: 'cbc', iv: convertToHex(sm4Iv) }); //默认用pkcs#7填充
 console.log('密文:', ciphertext.toString('hex'));
 
 // SM4 解密
-const decryptedText = sm4.decrypt(ciphertext, sm4Key, sm4Iv);
+const decryptedText = sm4.decrypt(ciphertext, convertToHex(sm4Key), { mode: 'cbc', iv: convertToHex(sm4Iv) });
 console.log('解密后的明文:', decryptedText);

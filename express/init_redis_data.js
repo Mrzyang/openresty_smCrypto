@@ -4,7 +4,7 @@ const sm2 = require('sm-crypto').sm2;
 
 // Redis连接
 const client = new Redis({
-  host: '192.168.110.45',
+  host: '192.168.110.45',  // 改回正确的地址
   port: 6379,
   retryDelayOnFailover: 100,
   enableReadyCheck: false,

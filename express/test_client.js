@@ -10,9 +10,22 @@ const CONFIG = {
   appid: 'app_001',
   sm2_private_key: 'your_sm2_private_key_here',
   sm2_public_key: 'your_sm2_public_key_here',
-  sm4_key: '1234567890abcdef',
-  sm4_iv: 'abcdef1234567890'
+  sm4_key: '1234567890abcdef', // 16字节密钥
+  sm4_iv: 'abcdef1234567890'   // 16字节IV
 };
+
+// 转换函数：将16字节字符串转换为32字符的十六进制字符串
+function convertToHex(keyOrIv) {
+    if (keyOrIv.length === 16) {
+        return Buffer.from(keyOrIv, 'utf-8').toString('hex');
+    } else if (keyOrIv.length === 32) {
+        return keyOrIv; // 已经是十六进制格式
+    } else {
+        // 其他情况，先调整长度再转换
+        const fixed = keyOrIv.length > 16 ? keyOrIv.substring(0, 16) : keyOrIv.padEnd(16, '\0');
+        return Buffer.from(fixed, 'utf-8').toString('hex');
+    }
+}
 
 // 生成测试用的SM2密钥对
 function generateTestKeys() {
@@ -43,8 +56,33 @@ function encryptRequestBody(body, key, iv) {
   if (!body || body === '') {
     return '';
   }
-  const encrypted = sm4.encrypt(body, key, { mode: 'cbc', iv });
-  return Buffer.from(encrypted, 'hex').toString('base64');
+  
+  console.log('加密参数:');
+  console.log('  密钥:', key);
+  console.log('  IV:', iv);
+  console.log('  密钥长度:', key.length);
+  console.log('  IV长度:', iv.length);
+  console.log('  原始请求体:', body);
+  
+  try {
+    // 使用转换函数将16字节字符串转换为32字符的十六进制字符串
+    const hexKey = convertToHex(key);
+    const hexIv = convertToHex(iv);
+    
+    console.log('  转换后密钥 (hex):', hexKey);
+    console.log('  转换后IV (hex):', hexIv);
+    console.log('  转换后密钥长度:', hexKey.length);
+    console.log('  转换后IV长度:', hexIv.length);
+    
+    // 使用十六进制格式的密钥和IV进行加密
+    const encrypted = sm4.encrypt(body, hexKey, { mode: 'cbc', iv: hexIv });
+    const result = Buffer.from(encrypted, 'hex').toString('base64');
+    console.log('  加密结果 (base64):', result);
+    return result;
+  } catch (error) {
+    console.error('加密过程中发生错误:', error.message);
+    throw error;
+  }
 }
 
 // 解密响应体
@@ -59,8 +97,35 @@ function decryptResponseBody(encryptedBody, key, iv) {
       return String(encryptedBody);
     }
   }
-  const encryptedBuffer = Buffer.from(encryptedBody, 'base64');
-  return sm4.decrypt(encryptedBuffer.toString('hex'), key, { mode: 'cbc', iv });
+  
+  console.log('解密参数:');
+  console.log('  密钥:', key);
+  console.log('  IV:', iv);
+  console.log('  密钥长度:', key.length);
+  console.log('  IV长度:', iv.length);
+  console.log('  加密数据 (base64):', encryptedBody);
+  
+  try {
+    // 使用转换函数将16字节字符串转换为32字符的十六进制字符串
+    const hexKey = convertToHex(key);
+    const hexIv = convertToHex(iv);
+    
+    console.log('  转换后密钥 (hex):', hexKey);
+    console.log('  转换后IV (hex):', hexIv);
+    console.log('  转换后密钥长度:', hexKey.length);
+    console.log('  转换后IV长度:', hexIv.length);
+    
+    const encryptedBuffer = Buffer.from(encryptedBody, 'base64');
+    console.log('  解码后的缓冲区长度:', encryptedBuffer.length);
+    
+    // 使用十六进制格式的密钥和IV进行解密
+    const result = sm4.decrypt(encryptedBuffer.toString('hex'), hexKey, { mode: 'cbc', iv: hexIv });
+    console.log('  解密结果:', result);
+    return result;
+  } catch (error) {
+    console.error('解密过程中发生错误:', error.message);
+    throw error;
+  }
 }
 
 // 验证响应签名
@@ -100,7 +165,7 @@ async function sendApiRequest(method, path, body = '', queryString = '') {
       'X-Signature': signature,
       'X-Nonce': nonce,
       'X-Timestamp': timestamp.toString(),
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/octet-stream'
     };
     
     // 构建完整URL
@@ -117,13 +182,20 @@ async function sendApiRequest(method, path, body = '', queryString = '') {
     console.log('签名:', signature);
     console.log('=====================================\n');
     
+    // 确保Content-Type正确设置
+    headers['Content-Type'] = 'application/octet-stream';
+    
     // 发送请求
     const response = await axios({
       method: method.toLowerCase(),
       url: url,
       headers: headers,
       data: encryptedBody,
-      timeout: 30000
+      timeout: 30000,
+      transformRequest: [(data, headers) => {
+        // 确保发送的是原始数据，而不是JSON字符串
+        return data;
+      }]
     });
     
     console.log(`=== 收到响应 ===`);

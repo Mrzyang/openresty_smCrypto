@@ -6,6 +6,21 @@ local cjson = require "cjson"
 
 local _M = {}
 
+-- 确保字符串是16字节长度
+local function ensure_16_bytes(str)
+    if type(str) ~= "string" then
+        return nil, "Invalid input type"
+    end
+    
+    if #str == 16 then
+        return str
+    elseif #str > 16 then
+        return string.sub(str, 1, 16)
+    else
+        return str .. string.rep("\0", 16 - #str)
+    end
+end
+
 -- SM3哈希计算
 function _M.sm3_hash(data)
     local hasher = digest.new("sm3")
@@ -59,37 +74,75 @@ end
 -- SM4加密
 function _M.sm4_encrypt(plaintext, key, iv)
     local mode = "sm4-cbc"
-    local cipher_obj = cipher.new(mode)
+    local cipher_obj, err = cipher.new(mode)
     if not cipher_obj then
-        return nil, "Failed to create SM4 cipher"
+        return nil, "Failed to create SM4 cipher: " .. (err or "unknown error")
     end
 
-    local encrypted = cipher_obj:encrypt(key, iv, plaintext, false)
+    -- 确保密钥和IV都是16字节长度
+    local fixed_key, err = ensure_16_bytes(key)
+    if not fixed_key then
+        return nil, "Failed to fix key: " .. (err or "unknown error")
+    end
+    
+    local fixed_iv, err = ensure_16_bytes(iv)
+    if not fixed_iv then
+        return nil, "Failed to fix IV: " .. (err or "unknown error")
+    end
+
+    -- 使用cipher:encrypt方法，参考示例代码的模式
+    local encrypted, err = cipher_obj:encrypt(fixed_key, fixed_iv, plaintext, false)
     if not encrypted then
-        return nil, "Failed to encrypt data"
+        return nil, "Failed to encrypt data: " .. (err or "unknown error")
     end
 
+    -- 直接对二进制数据进行base64编码，与sm4.lua保持一致
     return ngx.encode_base64(encrypted)
 end
 
 -- SM4解密
 function _M.sm4_decrypt(ciphertext, key, iv)
+    ngx.log(ngx.DEBUG, "开始SM4解密, 密文长度: ", #ciphertext, ", 密文内容: ", ciphertext)
+    ngx.log(ngx.DEBUG, "密钥: ", key, ", IV: ", iv)
+    
     local mode = "sm4-cbc"
-    local cipher_obj = cipher.new(mode)
+    local cipher_obj, err = cipher.new(mode)
     if not cipher_obj then
-        return nil, "Failed to create SM4 cipher"
+        ngx.log(ngx.ERR, "创建SM4 cipher失败: ", err)
+        return nil, "Failed to create SM4 cipher: " .. (err or "unknown error")
     end
 
+    -- 解码base64密文，直接得到二进制数据
     local cipher_bytes = ngx.decode_base64(ciphertext)
     if not cipher_bytes then
-        return nil, "Failed to decode ciphertext"
+        ngx.log(ngx.ERR, "Base64解码失败, 密文: ", ciphertext)
+        return nil, "Failed to decode ciphertext from base64"
     end
+    ngx.log(ngx.DEBUG, "Base64解码成功, 解码后长度: ", #cipher_bytes)
 
-    local decrypted = cipher_obj:decrypt(key, iv, cipher_bytes, false)
+    -- 确保密钥和IV都是16字节长度
+    local fixed_key, err = ensure_16_bytes(key)
+    if not fixed_key then
+        ngx.log(ngx.ERR, "密钥处理失败: ", err)
+        return nil, "Failed to fix key: " .. (err or "unknown error")
+    end
+    
+    local fixed_iv, err = ensure_16_bytes(iv)
+    if not fixed_iv then
+        ngx.log(ngx.ERR, "IV处理失败: ", err)
+        return nil, "Failed to fix IV: " .. (err or "unknown error")
+    end
+    
+    ngx.log(ngx.DEBUG, "处理后密钥长度: ", #fixed_key, ", IV长度: ", #fixed_iv)
+
+    -- 使用cipher:decrypt方法，参考示例代码的模式
+    local decrypted, err = cipher_obj:decrypt(fixed_key, fixed_iv, cipher_bytes, false)
     if not decrypted then
-        return nil, "Failed to decrypt data"
+        ngx.log(ngx.ERR, "解密失败: ", err)
+        return nil, "Failed to decrypt data: " .. (err or "unknown error")
     end
 
+    ngx.log(ngx.DEBUG, "解密成功, 结果: ", decrypted)
     return decrypted
 end
 

@@ -121,15 +121,30 @@ end
 
 -- 解密请求体
 function _M.decrypt_request_body(app_config, encrypted_body)
+    ngx.log(ngx.DEBUG, "开始解密请求体, 加密数据长度: ", #(encrypted_body or ""), ", 内容: ", encrypted_body)
+    ngx.log(ngx.DEBUG, "App配置 - SM4密钥: ", app_config.sm4_key, ", SM4 IV: ", app_config.sm4_iv)
+    
     if not encrypted_body or encrypted_body == "" then
+        ngx.log(ngx.DEBUG, "加密数据为空，返回空字符串")
         return true, ""
     end
     
-    local decrypted, err = sm_crypto.sm4_decrypt(encrypted_body, app_config.sm4_key, app_config.sm4_iv)
+    -- 增加健壮性：如果encrypted_body是用双引号包裹的字符串，则去掉双引号
+    local cleaned_body = encrypted_body
+    if type(encrypted_body) == "string" and 
+       string.sub(encrypted_body, 1, 1) == '"' and 
+       string.sub(encrypted_body, -1) == '"' then
+        cleaned_body = string.sub(encrypted_body, 2, -2)
+        ngx.log(ngx.DEBUG, "检测到双引号包裹的加密数据，已清理: ", cleaned_body)
+    end
+    
+    local decrypted, err = sm_crypto.sm4_decrypt(cleaned_body, app_config.sm4_key, app_config.sm4_iv)
     if not decrypted then
+        ngx.log(ngx.ERR, "解密请求体失败: ", err)
         return false, "Failed to decrypt request body: " .. (err or "unknown error")
     end
     
+    ngx.log(ngx.DEBUG, "解密请求体成功, 解密后长度: ", #decrypted, ", 内容: ", decrypted)
     return true, decrypted
 end
 
