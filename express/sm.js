@@ -70,11 +70,17 @@ console.log(pemKeys.publicKeyPem);
 const message = 'Hello, SM2!';
 
 // 生成签名
-const sign = sm2.doSignature(message, sm2KeyPair.privateKey);
+// 修复：使用SM3杂凑算法生成签名
+const sign = sm2.doSignature(message, sm2KeyPair.privateKey, {
+  hash: true // 启用SM3杂凑
+});
 console.log('签名:', sign);
 
 // 验签
-const isVerified = sm2.doVerifySignature(message, sign, sm2KeyPair.publicKey);
+// 修复：使用SM3杂凑算法验签
+const isVerified = sm2.doVerifySignature(message, sign, sm2KeyPair.publicKey, {
+  hash: true // 启用SM3杂凑
+});
 console.log('签名验证结果:', isVerified ? '验证成功' : '验证失败');
 
 // --- SM3 哈希摘要 ---

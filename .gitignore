@@ -117,7 +117,6 @@ openresty/nginx/conf/*.old
 openresty/lualib/*.cache
 
 # IDE files
-.vscode/
 *.swp
 *.swo
 *~

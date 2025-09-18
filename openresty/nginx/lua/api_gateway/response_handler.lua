@@ -2,7 +2,6 @@
 local sm_crypto = require "api_gateway.sm_crypto_utils"
 local redis_utils = require "api_gateway.redis_utils"
 local cjson = require "cjson"
-local http = require "resty.http"
 
 local _M = {}
 
@@ -27,11 +26,12 @@ function _M.sign_response_body(app_config, response_body)
     if not response_body or response_body == "" then
         return ""
     end
-    -- 使用网关签名私钥（仅支持PEM格式）
-    local priv = app_config.gateway_sm2_private_key_pem or app_config.sm2_private_key_pem
-    -- 仅支持PEM格式的私钥
-    if type(priv) ~= "string" then
-        ngx.log(ngx.WARN, "SM2 private key is not string; skipping response signing for appid=", app_config.appid)
+    -- 使用网关签名私钥（支持PEM格式和十六进制格式）
+    local priv = app_config.gateway_sm2_private_key_pem or app_config.gateway_sm2_private_key or 
+                 app_config.sm2_private_key_pem or app_config.sm2_private_key
+    -- 检查是否有私钥
+    if type(priv) ~= "string" or priv == "" then
+        ngx.log(ngx.WARN, "SM2 private key is missing; skipping response signing for appid=", app_config.appid)
         return ""
     end
     local signature, err = sm_crypto.sm2_sign(response_body, priv)
@@ -98,36 +98,53 @@ end
 function _M.proxy_to_backend(api_config, decrypted_body, headers)
     local method = ngx.var.request_method
     local query_string = ngx.var.query_string or ""
+    local uri = ngx.var.uri
 
-    local url = api_config.backend_url
+    -- 构建后端URL路径
+    local backend_path = api_config.backend_url:gsub("^[^:]+://[^/]+", "")  -- 移除协议和主机部分
+    if backend_path == "" then backend_path = "/" end
+
+    -- 构建完整的代理URL
+    local proxy_url = "/internal_backend" .. backend_path
     if query_string ~= "" then
-        url = url .. "?" .. query_string
+        if proxy_url:find("?") then
+            proxy_url = proxy_url .. "&" .. query_string
+        else
+            proxy_url = proxy_url .. "?" .. query_string
+        end
     end
 
-    local httpc = http.new()
-    httpc:set_timeout((api_config.timeout or 30) * 1000)
-
+    -- 构建请求头
     local req_headers = {
         ["X-Original-Method"] = method,
-        ["X-Original-URI"] = ngx.var.uri,
+        ["X-Original-URI"] = uri,
         ["X-Forwarded-For"] = ngx.var.remote_addr,
         ["X-Real-IP"] = ngx.var.remote_addr
     }
 
-    local req_opts = {
-        method = method,
-        headers = req_headers,
-        keepalive = true,
-    }
-
-    if method ~= "GET" and method ~= "HEAD" then
-        req_headers["Content-Type"] = "application/json"
-        req_opts.body = decrypted_body or ""
+    -- 复制原始请求头
+    local original_headers = ngx.req.get_headers()
+    for k, v in pairs(original_headers) do
+        local lk = k:lower()
+        -- 跳过我们自己设置的头和一些内部头
+        if not (lk == "x-original-method" or lk == "x-original-uri" or 
+                lk == "x-forwarded-for" or lk == "x-real-ip" or
+                lk == "content-length" or lk == "connection" or
+                lk == "upgrade" or lk == "transfer-encoding") then
+            req_headers[k] = v
+        end
     end
 
-    local res, err = httpc:request_uri(url, req_opts)
+    -- 使用ngx.location.capture代理请求
+    local res = ngx.location.capture(proxy_url, {
+        method = ngx["HTTP_" .. method],
+        body = (method ~= "GET" and method ~= "HEAD") and (decrypted_body or "") or nil,
+        headers = req_headers,
+        share_all_vars = true,
+    })
+
     if not res then
-        return nil, "Failed to request backend: " .. (err or "unknown error")
+        return nil, "Failed to request backend"
     end
 
     if res.status >= 400 then
@@ -137,7 +154,7 @@ function _M.proxy_to_backend(api_config, decrypted_body, headers)
     return {
         status = res.status,
         body = res.body,
-        headers = res.headers or {}
+        headers = res.header or {}
     }
 end
 

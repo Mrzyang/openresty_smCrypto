@@ -19,90 +19,17 @@ client.on('connect', () => {
   console.log('Connected to Redis');
 });
 
-// --- 添加PEM格式转换函数 ---
-function hexToPem(privateKeyHex, publicKeyHex) {
-  console.log('生成PEM格式密钥 - 输入十六进制私钥:', privateKeyHex);
-  console.log('生成PEM格式密钥 - 输入十六进制公钥:', publicKeyHex);
-  
-  // 生成PKCS#8格式的私钥，这是OpenResty更兼容的格式
-  // PrivateKeyInfo ::= SEQUENCE {
-  //   version                   Version,
-  //   privateKeyAlgorithm       PrivateKeyAlgorithmIdentifier,
-  //   privateKey                PrivateKey,
-  //   attributes            [0] Attributes OPTIONAL }
-  
-  // Version (INTEGER 0 for PKCS#8)
-  const version = '020100';
-  
-  // PrivateKeyAlgorithmIdentifier (SM2 algorithm identifier)
-  const algorithmIdentifier = '300d06072a811ccf5501822d0500';
-  
-  // PrivateKey (OCTET STRING containing the actual private key)
-  const actualPrivateKey = '0420' + privateKeyHex;
-  
-  // 构造完整的私钥SEQUENCE
-  const privateKeySequence = algorithmIdentifier + actualPrivateKey;
-  const privateKeyLength = (privateKeySequence.length / 2).toString(16).padStart(2, '0');
-  const privateKeyWrapper = '04' + privateKeyLength + privateKeySequence;
-  
-  // 构造完整的PrivateKeyInfo
-  const privateKeyInfo = version + algorithmIdentifier + privateKeyWrapper;
-  const privateKeyInfoLength = (privateKeyInfo.length / 2).toString(16).padStart(2, '0');
-  const privateKeyInfoDer = '30' + privateKeyInfoLength + privateKeyInfo;
-  
-  // 构造PEM格式的私钥
-  const privateKeyPem = '-----BEGIN PRIVATE KEY-----\n' +
-    Buffer.from(privateKeyInfoDer, 'hex').toString('base64').match(/.{1,64}/g).join('\n') +
-    '\n-----END PRIVATE KEY-----';
-  
-  console.log('生成的私钥PEM:');
-  console.log(privateKeyPem);
-  
-  // 生成公钥格式 (SubjectPublicKeyInfo)
-  // SubjectPublicKeyInfo ::= SEQUENCE {
-  //   algorithm            AlgorithmIdentifier,
-  //   subjectPublicKey     BIT STRING }
-  
-  // AlgorithmIdentifier (SM2 algorithm identifier with NULL parameter)
-  const pubAlgorithmIdentifier = '300d06072a811ccf5501822d0500';
-  
-  // subjectPublicKey (BIT STRING containing the public key)
-  // BIT STRING需要一个前导字节表示忽略的位数（通常为0）
-  const publicKeyData = '00' + publicKeyHex; // 添加前导0x00
-  const publicKeyLength = (publicKeyData.length / 2).toString(16).padStart(2, '0');
-  const publicKeyBitString = '03' + publicKeyLength + publicKeyData;
-  
-  // 构造完整的SubjectPublicKeyInfo
-  const subjectPublicKeyInfo = pubAlgorithmIdentifier + publicKeyBitString;
-  const subjectPublicKeyInfoLength = (subjectPublicKeyInfo.length / 2).toString(16).padStart(2, '0');
-  const subjectPublicKeyInfoDer = '30' + subjectPublicKeyInfoLength + subjectPublicKeyInfo;
-  
-  // 构造PEM格式的公钥
-  const publicKeyPem = '-----BEGIN PUBLIC KEY-----\n' +
-    Buffer.from(subjectPublicKeyInfoDer, 'hex').toString('base64').match(/.{1,64}/g).join('\n') +
-    '\n-----END PUBLIC KEY-----';
-  
-  console.log('生成的公钥PEM:');
-  console.log(publicKeyPem);
-  
-  return {
-    privateKeyPem,
-    publicKeyPem
-  };
-}
-
 // 生成测试用的SM2密钥对
 function generateTestKeys() {
+  // 生成十六进制格式的密钥对
   const keyPair = sm2.generateKeyPairHex();
   console.log('生成的十六进制密钥对:');
   console.log('私钥:', keyPair.privateKey);
   console.log('公钥:', keyPair.publicKey);
   
-  // 同时生成PEM格式的密钥
-  const pemKeys = hexToPem(keyPair.privateKey, keyPair.publicKey);
   return {
-    privateKeyPem: pemKeys.privateKeyPem,
-    publicKeyPem: pemKeys.publicKeyPem
+    privateKey: keyPair.privateKey,
+    publicKey: keyPair.publicKey
   };
 }
 
@@ -117,12 +44,12 @@ async function initAppData() {
     appid: 'app_001',
     name: '测试应用',
     status: 'active',
-    // 仅存储PEM格式的密钥
-    sm2_private_key_pem: keys.privateKeyPem,
-    sm2_public_key_pem: keys.publicKeyPem,
-    // 网关签名用的密钥对(仅PEM格式)
-    gateway_sm2_private_key_pem: gatewaySigningKeys.privateKeyPem,
-    gateway_sm2_public_key_pem: gatewaySigningKeys.publicKeyPem,
+    // 存储十六进制格式的密钥
+    sm2_private_key: keys.privateKey,
+    sm2_public_key: keys.publicKey,
+    // 网关签名用的密钥对(十六进制格式)
+    gateway_sm2_private_key: gatewaySigningKeys.privateKey,
+    gateway_sm2_public_key: gatewaySigningKeys.publicKey,
     sm4_key: '1234567890abcdef',
     sm4_iv: 'abcdef1234567890',
     ip_whitelist: ['127.0.0.1', '192.168.1.100', '192.168.1.101'],
@@ -141,12 +68,12 @@ async function initAppData() {
     appid: 'app_002',
     name: '测试应用2',
     status: 'active',
-    // 仅存储PEM格式的密钥
-    sm2_private_key_pem: keys2.privateKeyPem,
-    sm2_public_key_pem: keys2.publicKeyPem,
-    // 网关签名用的密钥对(仅PEM格式)
-    gateway_sm2_private_key_pem: gatewaySigningKeys2.privateKeyPem,
-    gateway_sm2_public_key_pem: gatewaySigningKeys2.publicKeyPem,
+    // 存储十六进制格式的密钥
+    sm2_private_key: keys2.privateKey,
+    sm2_public_key: keys2.publicKey,
+    // 网关签名用的密钥对(十六进制格式)
+    gateway_sm2_private_key: gatewaySigningKeys2.privateKey,
+    gateway_sm2_public_key: gatewaySigningKeys2.publicKey,
     sm4_key: 'fedcba0987654321',
     sm4_iv: '0987654321fedcba',
     ip_whitelist: ['127.0.0.1'],
@@ -306,11 +233,11 @@ async function showCurrentData() {
     const app = JSON.parse(data);
     console.log(`${key}: ${app.name} (${app.status})`);
     // 输出密钥信息用于验证
-    if (app.sm2_private_key_pem) {
-      console.log(`  SM2私钥(PEM): ${app.sm2_private_key_pem.substring(0, 50)}...`);
+    if (app.sm2_private_key) {
+      console.log(`  SM2私钥(HEX): ${app.sm2_private_key.substring(0, 50)}...`);
     }
-    if (app.sm2_public_key_pem) {
-      console.log(`  SM2公钥(PEM): ${app.sm2_public_key_pem.substring(0, 50)}...`);
+    if (app.sm2_public_key) {
+      console.log(`  SM2公钥(HEX): ${app.sm2_public_key.substring(0, 50)}...`);
     }
   }
   

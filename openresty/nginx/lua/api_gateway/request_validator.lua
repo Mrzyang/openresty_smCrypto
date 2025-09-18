@@ -105,10 +105,11 @@ end
 -- 验证签名
 function _M.validate_signature(app_config, signature, method, uri, query_string, body, nonce, timestamp)
     local signature_data = sm_crypto.build_signature_data(method, uri, query_string, body, nonce, timestamp)
+    -- 支持两种格式的公钥：PEM格式和十六进制格式
     local pub = app_config.sm2_public_key_pem or app_config.sm2_public_key
-    -- 检查是否为PEM格式的公钥
-    if type(pub) ~= "string" or not pub:find("BEGIN PUBLIC KEY", 1, true) then
-        ngx.log(ngx.WARN, "SM2 public key is not PEM format; skipping signature verification for appid=", app_config.appid)
+    -- 检查是否有公钥
+    if type(pub) ~= "string" or pub == "" then
+        ngx.log(ngx.WARN, "SM2 public key is missing; skipping signature verification for appid=", app_config.appid)
         return true
     end
 
@@ -203,13 +204,8 @@ function _M.validate_request()
     local query_string = ngx.var.query_string or ""
     local body = ngx.req.get_body_data() or ""
     
-    -- 6. 验证签名
-    local ok, err = _M.validate_signature(app_config, headers.signature, method, uri, query_string, body, headers.nonce, headers.timestamp)
-    if not ok then
-        return false, err, app_config
-    end
-    
-    -- 7. 解密请求体
+    -- 6. 对于非GET/HEAD请求，先解密请求体
+    local signature_body = body  -- 默认使用原始body进行签名验证
     local decrypted_body = ""
     if method ~= "GET" and method ~= "HEAD" then
         local ok_dec, dec_or_err = _M.decrypt_request_body(app_config, body)
@@ -217,6 +213,14 @@ function _M.validate_request()
             return false, dec_or_err, app_config
         end
         decrypted_body = dec_or_err
+        -- 使用解密后的数据进行签名验证
+        signature_body = decrypted_body
+    end
+    
+    -- 7. 验证签名（使用解密后的数据）
+    local ok, err = _M.validate_signature(app_config, headers.signature, method, uri, query_string, signature_body, headers.nonce, headers.timestamp)
+    if not ok then
+        return false, err, app_config
     end
     
     -- 8. 查找API配置
