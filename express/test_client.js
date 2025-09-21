@@ -9,23 +9,10 @@ const CONFIG = {
   gateway_url: 'http://localhost:8082',
   appid: 'app_001',
   sm2_private_key: 'your_sm2_private_key_here',
-  sm2_public_key: 'your_sm2_public_key_here',
-  sm4_key: '1234567890abcdef', // 16字节密钥
-  sm4_iv: 'abcdef1234567890'   // 16字节IV
+  gateway_sm2_public_key: 'your_gateway_sm2_public_key_here',
+  sm4_key: 'your_sm4_key_here', // 32字符十六进制字符串
+  sm4_iv: 'your_sm4_iv_here'    // 32字符十六进制字符串
 };
-
-// 转换函数：将16字节字符串转换为32字符的十六进制字符串
-function convertToHex(keyOrIv) {
-    if (keyOrIv.length === 16) {
-        return Buffer.from(keyOrIv, 'utf-8').toString('hex');
-    } else if (keyOrIv.length === 32) {
-        return keyOrIv; // 已经是十六进制格式
-    } else {
-        // 其他情况，先调整长度再转换
-        const fixed = keyOrIv.length > 16 ? keyOrIv.substring(0, 16) : keyOrIv.padEnd(16, '\0');
-        return Buffer.from(fixed, 'utf-8').toString('hex');
-    }
-}
 
 // 生成测试用的SM2密钥对
 function generateTestKeys() {
@@ -33,10 +20,7 @@ function generateTestKeys() {
   console.log('=== 生成测试密钥对 ===');
   console.log('SM2 私钥:', keyPair.privateKey);
   console.log('SM2 公钥:', keyPair.publicKey);
-  console.log('SM4 密钥:', CONFIG.sm4_key);
-  console.log('SM4 IV:', CONFIG.sm4_iv);
   console.log('========================\n');
-  
   return keyPair;
 }
 
@@ -60,17 +44,8 @@ function encryptRequestBody(body, key, iv) {
   console.log('  原始请求体:', body);
   
   try {
-    // 使用转换函数将16字节字符串转换为32字符的十六进制字符串
-    const hexKey = convertToHex(key);
-    const hexIv = convertToHex(iv);
-    
-    console.log('  转换后密钥 (hex):', hexKey);
-    console.log('  转换后IV (hex):', hexIv);
-    console.log('  转换后密钥长度:', hexKey.length);
-    console.log('  转换后IV长度:', hexIv.length);
-    
-    // 使用十六进制格式的密钥和IV进行加密
-    const encrypted = sm4.encrypt(body, hexKey, { mode: 'cbc', iv: hexIv });
+    // 直接使用十六进制格式的密钥和IV进行加密（32字符）
+    const encrypted = sm4.encrypt(body, key, { mode: 'cbc', iv: iv });
     const result = Buffer.from(encrypted, 'hex').toString('base64');
     console.log('  加密结果 (base64):', result);
     return result;
@@ -101,20 +76,11 @@ function decryptResponseBody(encryptedBody, key, iv) {
   console.log('  加密数据 (base64):', encryptedBody);
   
   try {
-    // 使用转换函数将16字节字符串转换为32字符的十六进制字符串
-    const hexKey = convertToHex(key);
-    const hexIv = convertToHex(iv);
-    
-    console.log('  转换后密钥 (hex):', hexKey);
-    console.log('  转换后IV (hex):', hexIv);
-    console.log('  转换后密钥长度:', hexKey.length);
-    console.log('  转换后IV长度:', hexIv.length);
-    
+    // 直接使用十六进制格式的密钥和IV进行解密（32字符）
     const encryptedBuffer = Buffer.from(encryptedBody, 'base64');
     console.log('  解码后的缓冲区长度:', encryptedBuffer.length);
     
-    // 使用十六进制格式的密钥和IV进行解密
-    const result = sm4.decrypt(encryptedBuffer.toString('hex'), hexKey, { mode: 'cbc', iv: hexIv });
+    const result = sm4.decrypt(encryptedBuffer.toString('hex'), key, { mode: 'cbc', iv: iv });
     console.log('  解密结果:', result);
     return result;
   } catch (error) {
@@ -138,12 +104,14 @@ async function sendApiRequest(method, path, body = '', queryString = '') {
     const timestamp = Math.floor(Date.now() / 1000);
     
     // 构建签名数据
-    const signatureData = buildSignatureData(method, path, queryString, body, nonce, timestamp);
+    const dataToSign = buildSignatureData(method, path, queryString, body, nonce, timestamp);
     
     // 生成签名 (使用十六进制格式的私钥)
-    // 修复：使用SM3杂凑算法生成签名，与网关保持一致
-    const signature = sm2.doSignature(signatureData, CONFIG.sm2_private_key, {
-      hash: true // 启用SM3杂凑
+    const signature = sm2.doSignature(dataToSign, CONFIG.sm2_private_key, {
+      hash: true, // 启用SM3杂凑
+      der: true, //启动ans1/der编码
+      //publicKey  //传入公钥，签名过程会更快，但是公钥也是通过私钥解出来的，客户端没有从redis中获取公钥，所以这里注释掉
+      //userId: "1234567812345678",  //国密算法国标userId默认为1234567812345678，可省略
     });
     
     // 加密请求体
@@ -168,7 +136,7 @@ async function sendApiRequest(method, path, body = '', queryString = '') {
     console.log('请求头:', headers);
     console.log('原始请求体:', body);
     console.log('加密后请求体:', encryptedBody);
-    console.log('签名数据:', signatureData);
+    console.log('签名数据:', dataToSign);
     console.log('签名:', signature);
     console.log('=====================================\n');
     
@@ -231,7 +199,7 @@ async function sendApiRequest(method, path, body = '', queryString = '') {
 async function getAppConfigFromRedis(appid) {
   const Redis = require('ioredis');
   const redisClient = new Redis({
-    host: '192.168.110.45',
+    host: '192.168.56.2',
     port: 6379,
     retryDelayOnFailover: 100,
     enableReadyCheck: false,
@@ -258,18 +226,13 @@ async function runTests() {
   console.log('开始API网关测试...\n');
   
   try {
-    // 生成测试密钥
-    const keyPair = generateTestKeys();
-    CONFIG.sm2_private_key = keyPair.privateKey;
-    CONFIG.sm2_public_key = keyPair.publicKey;
-    
     // 从Redis获取App配置
     const appConfig = await getAppConfigFromRedis('app_001');
     if (appConfig) {
-      if (appConfig.gateway_sm2_public_key) {
-        CONFIG.gateway_sm2_public_key = appConfig.gateway_sm2_public_key;
-        console.log('获取到网关签名公钥(HEX)');
-      }
+      CONFIG.sm2_private_key = appConfig.sm2_private_key;
+      CONFIG.gateway_sm2_public_key = appConfig.gateway_sm2_public_key;
+      CONFIG.sm4_key = appConfig.sm4_key;  // 32字符十六进制字符串
+      CONFIG.sm4_iv = appConfig.sm4_iv;    // 32字符十六进制字符串
     }
     
     // 测试1: 健康检查
@@ -310,13 +273,13 @@ async function runTests() {
 // 单独测试函数
 async function testSingleApi(method, path, body = '') {
   try {
-    const keyPair = generateTestKeys();
-    CONFIG.sm2_private_key = keyPair.privateKey;
-    CONFIG.sm2_public_key = keyPair.publicKey;
-    
     // 从Redis获取App配置
     const appConfig = await getAppConfigFromRedis('app_001');
     if (appConfig) {
+      CONFIG.sm2_private_key = appConfig.sm2_private_key;
+      CONFIG.gateway_sm2_public_key = appConfig.gateway_sm2_public_key;
+      CONFIG.sm4_key = appConfig.sm4_key;  // 32字符十六进制字符串
+      CONFIG.sm4_iv = appConfig.sm4_iv;    // 32字符十六进制字符串
       if (appConfig.gateway_sm2_public_key) {
         CONFIG.gateway_sm2_public_key = appConfig.gateway_sm2_public_key;
       }

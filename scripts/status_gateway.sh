@@ -8,7 +8,7 @@ OPENRESTY_HOME="/opt/zy/software/openresty"
 EXPRESS_HOME="/opt/zy/software/express"
 GATEWAY_PORT="8082"
 BACKEND_PORT="3000"
-REDIS_HOST="192.168.110.45"
+REDIS_HOST="192.168.56.2"
 REDIS_PORT="6379"
 
 # 颜色定义

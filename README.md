@@ -85,7 +85,7 @@ cd /opt/zy/software/scripts
 ### 端口配置
 - 网关端口: 8082
 - 后端端口: 3000
-- Redis: 192.168.110.45:6379
+- Redis: 192.168.56.2:6379
 
 ## 安全特性
 
@@ -133,7 +133,7 @@ tail -f /opt/zy/software/openresty/nginx/logs/api_gateway_access.log
 
 2. **Redis连接失败**
    ```bash
-   redis-cli -h 192.168.110.45 -p 6379 ping
+   redis-cli -h 192.168.56.2 -p 6379 ping
    ```
 
 3. **服务启动失败**

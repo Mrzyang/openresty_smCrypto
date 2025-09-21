@@ -5,7 +5,7 @@ local cjson = require "cjson"
 local _M = {}
 
 -- Redis连接配置
-local REDIS_HOST = "192.168.110.45"
+local REDIS_HOST = "192.168.56.2"
 local REDIS_PORT = 6379
 local REDIS_TIMEOUT = 1000 -- 1秒超时
 
@@ -35,6 +35,12 @@ end
 
 -- 获取App配置
 function _M.get_app_config(appid)
+    ngx.log(ngx.DEBUG, "------------appid: ", appid)
+    -- 确保appid是字符串类型
+    if not appid or type(appid) ~= "string" then
+        return nil, "Invalid appid: must be a string, got " .. type(appid)
+    end
+    
     local red, err = _M.get_redis_connection()
     if not red then
         return nil, err
@@ -124,6 +130,46 @@ function _M.set_nonce_used(appid, nonce, ttl)
     end
     
     local ok, err = red:setex("nonce:" .. appid .. ":" .. nonce, ttl or 300, ngx.time())
+    _M.close_redis_connection(red)
+    
+    if not ok then
+        return nil, err
+    end
+    
+    return true
+end
+
+-- 检查键是否存在
+function _M.exists(key)
+    local red, err = _M.get_redis_connection()
+    if not red then
+        return nil, err
+    end
+    
+    local res, err = red:exists(key)
+    _M.close_redis_connection(red)
+    
+    if not res then
+        return nil, err
+    end
+    
+    return res > 0
+end
+
+-- 设置键值对
+function _M.set(key, value, ex, ttl)
+    local red, err = _M.get_redis_connection()
+    if not red then
+        return nil, err
+    end
+    
+    local ok, err
+    if ex == "EX" then
+        ok, err = red:setex(key, ttl, value)
+    else
+        ok, err = red:set(key, value)
+    end
+    
     _M.close_redis_connection(red)
     
     if not ok then

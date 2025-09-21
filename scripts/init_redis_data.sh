@@ -5,7 +5,7 @@
 
 # 配置
 EXPRESS_HOME="/opt/zy/software/express"
-REDIS_HOST="192.168.110.45"
+REDIS_HOST="192.168.56.2"
 REDIS_PORT="6379"
 
 # 颜色定义

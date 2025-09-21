@@ -67,7 +67,7 @@ npm list
 # 测试Redis连接
 node -e "
 const Redis = require('ioredis');
-const client = new Redis({host: '192.168.110.45', port: 6379});
+const client = new Redis({host: '192.168.56.2', port: 6379});
 client.ping().then(() => {
   console.log('Redis connection: OK');
   client.quit();
@@ -91,8 +91,8 @@ cd /opt/zy/software/scripts
 
 2. **检查网络连接**
    ```bash
-   ping 192.168.110.45
-   telnet 192.168.110.45 6379
+   ping 192.168.56.2
+   telnet 192.168.56.2 6379
    ```
 
 3. **查看详细错误**

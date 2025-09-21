@@ -4,7 +4,7 @@ const sm2 = require('sm-crypto').sm2;
 
 // Redis连接
 const client = new Redis({
-  host: '192.168.110.45',  // 改回正确的地址
+  host: '192.168.56.2',  // 使用您指定的Redis地址
   port: 6379,
   retryDelayOnFailover: 100,
   enableReadyCheck: false,
@@ -33,12 +33,27 @@ function generateTestKeys() {
   };
 }
 
+// 生成32个字符的随机十六进制字符串
+function generateRandomHex32() {
+  let result = '';
+  const characters = '0123456789abcdef';
+  const charactersLength = characters.length;
+  for (let i = 0; i < 32; i++) {
+    result += characters.charAt(Math.floor(Math.random() * charactersLength));
+  }
+  return result;
+}
+
 // 初始化App数据
 async function initAppData() {
   console.log('初始化App数据...');
   
   const keys = generateTestKeys();
   const gatewaySigningKeys = generateTestKeys(); // 用于网关签名的密钥对
+  
+  // 生成32个字符的随机十六进制字符串作为SM4密钥和IV
+  const sm4Key = generateRandomHex32();
+  const sm4Iv = generateRandomHex32();
   
   const appConfig = {
     appid: 'app_001',
@@ -50,8 +65,9 @@ async function initAppData() {
     // 网关签名用的密钥对(十六进制格式)
     gateway_sm2_private_key: gatewaySigningKeys.privateKey,
     gateway_sm2_public_key: gatewaySigningKeys.publicKey,
-    sm4_key: '1234567890abcdef',
-    sm4_iv: 'abcdef1234567890',
+    // 生成32个字符的随机十六进制字符串作为SM4密钥和IV
+    sm4_key: sm4Key,
+    sm4_iv: sm4Iv,
     ip_whitelist: ['127.0.0.1', '192.168.1.100', '192.168.1.101'],
     nonce_window: 300,
     created_at: new Date().toISOString(),
@@ -64,6 +80,11 @@ async function initAppData() {
   // 创建第二个测试App
   const keys2 = generateTestKeys();
   const gatewaySigningKeys2 = generateTestKeys(); // 用于网关签名的密钥对
+  
+  // 生成32个字符的随机十六进制字符串作为SM4密钥和IV
+  const sm4Key2 = generateRandomHex32();
+  const sm4Iv2 = generateRandomHex32();
+  
   const appConfig2 = {
     appid: 'app_002',
     name: '测试应用2',
@@ -74,8 +95,9 @@ async function initAppData() {
     // 网关签名用的密钥对(十六进制格式)
     gateway_sm2_private_key: gatewaySigningKeys2.privateKey,
     gateway_sm2_public_key: gatewaySigningKeys2.publicKey,
-    sm4_key: 'fedcba0987654321',
-    sm4_iv: '0987654321fedcba',
+    // 生成32个字符的随机十六进制字符串作为SM4密钥和IV
+    sm4_key: sm4Key2,
+    sm4_iv: sm4Iv2,
     ip_whitelist: ['127.0.0.1'],
     nonce_window: 300,
     created_at: new Date().toISOString(),
@@ -238,6 +260,13 @@ async function showCurrentData() {
     }
     if (app.sm2_public_key) {
       console.log(`  SM2公钥(HEX): ${app.sm2_public_key.substring(0, 50)}...`);
+    }
+    // 输出SM4密钥和IV信息
+    if (app.sm4_key) {
+      console.log(`  SM4密钥(HEX): ${app.sm4_key}`);
+    }
+    if (app.sm4_iv) {
+      console.log(`  SM4 IV(HEX): ${app.sm4_iv}`);
     }
   }
   

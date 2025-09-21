@@ -1,0 +1,1 @@
+node test_client.js single POST /api/user/create '{"name":"Test User","email":"test@example.com"}'
