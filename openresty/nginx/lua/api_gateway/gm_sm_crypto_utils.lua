@@ -38,9 +38,8 @@ end
 -- SM4 CBC模式加密
 function _M.sm4_cbc_encrypt(plaintext, key, iv)
     local encrypted = gmCryptor.sm4CbcEncrypt(plaintext, key, iv)
-    
     if encrypted then
-        return ngx.encode_base64(encrypted)
+        return encrypted
     end
     return nil
 end

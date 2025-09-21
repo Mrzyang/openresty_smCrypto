@@ -20,7 +20,7 @@ function _M.encrypt_response(app_config, response_body)
         return nil, "Failed to encrypt response"
     end
     
-    return encrypted
+    return ngx.encode_base64(encrypted)
 end
 
 -- 签名响应体

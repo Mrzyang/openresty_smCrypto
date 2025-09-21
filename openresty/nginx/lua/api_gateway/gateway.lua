@@ -206,11 +206,14 @@ function _M.handle_request()
     -- 对于非200状态码的响应，不进行加密和签名
     if res.status == 200 then
         ngx.log(ngx.DEBUG, "开始处理成功响应")
-        local response_body = response_handler.handle_response(result.app_config, res.body)
-        if response_body then
+        local encrypted_response_body = response_handler.handle_response(result.app_config, res.body)
+        ngx.log(ngx.DEBUG, "后端响应体内容(前100字符): ", display_response)
+        ngx.log(ngx.DEBUG, "网关加密后的响应体内容: ", encrypted_response_body)
+        if encrypted_response_body then
             ngx.status = res.status
-            ngx.header["Content-Length"] = #response_body
-            ngx.print(response_body)
+            ngx.header["Content-Length"] = #encrypted_response_body
+            ngx.header["x-encrypted"] = "true"
+            ngx.print(encrypted_response_body)
         else
             ngx.log(ngx.ERR, "响应处理失败")
             ngx.status = 500
