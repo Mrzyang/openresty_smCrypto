@@ -22,10 +22,6 @@ function _M.handle_request()
     ngx.req.read_body()
     local body = ngx.req.get_body_data()
     
-    ngx.log(ngx.DEBUG, "接收到请求: ", method, " ", uri)
-    ngx.log(ngx.DEBUG, "App ID: ", appid)
-    ngx.log(ngx.DEBUG, "请求体大小: ", body and #body or 0)
-    
     -- 检查必需的请求头
     if not appid then
         ngx.status = 400
@@ -65,10 +61,12 @@ function _M.handle_request()
     -- 设置上下文中的App配置和API配置，供其他模块使用
     context.set_app_config(result.app_config)
     
-    -- 获取解密后的请求体
-    local decrypted_body = result.decrypted_body or body
-    ngx.log(ngx.DEBUG, "解密后的请求体: ", decrypted_body)
-    ngx.log(ngx.DEBUG, "解密后请求体大小: ", decrypted_body and #decrypted_body or 0)
+    -- 获取解密后的请求体（在验证过程中已经解密）
+    local decrypted_body = nil
+    if body and body ~= "" then
+        -- 从验证结果中获取解密后的请求体
+        decrypted_body = result.decrypted_body or body
+    end
     
     -- 2. 请求验证通过，代理到后端服务
     -- 使用ngx.location.capture代理请求到内部location
@@ -98,40 +96,17 @@ function _M.handle_request()
     
     -- 设置正确的Content-Type
     backend_headers["Content-Type"] = "application/json"
-    backend_headers["Content-Length"] = #decrypted_body
-    ngx.log(ngx.DEBUG, "准备代理请求到后端: ", "/internal_backend" .. backend_uri)
-    ngx.log(ngx.DEBUG, "代理方法: ", http_method)
-    ngx.log(ngx.DEBUG, "decrypted_body大小: ", decrypted_body and #decrypted_body or 0)
     
-    -- 确保我们传递的是有效的请求体
-    local proxy_body = decrypted_body
-    if proxy_body == nil then
-        proxy_body = ""
-    end
-    ngx.log(ngx.DEBUG, "代理到后端express的请求体: ", proxy_body)
-    ngx.log(ngx.DEBUG, "代理到后端express的请求体大小: ", proxy_body and #proxy_body or 0)
-    -- 使用ngx.location.capture代理请求到后端服务
     local res = ngx.location.capture(
         "/internal_backend" .. backend_uri,
         {
             method = http_method,
-            body = proxy_body,
+            body = decrypted_body,
             headers = backend_headers
         }
     )
     
-    ngx.log(ngx.DEBUG, "后端响应状态: ", res.status)
-    ngx.log(ngx.DEBUG, "后端响应体大小: ", res.body and #res.body or 0)
-    ngx.log(ngx.DEBUG, "后端响应体: ", res.body)
-    
     -- 检查后端响应
-    if not res then
-        ngx.log(ngx.ERR, "后端服务无响应")
-        ngx.status = 502
-        ngx.say('{"error":"Bad Gateway"}')
-        return
-    end
-    
     if res.status >= 500 then
         ngx.status = res.status
         ngx.say('{"error":"Backend service error"}')
@@ -141,26 +116,14 @@ function _M.handle_request()
     -- 3. 处理后端响应
     -- 对于非200状态码的响应，不进行加密和签名
     if res.status == 200 then
-        ngx.log(ngx.DEBUG, "开始处理成功响应")
         local response_body = response_handler.handle_response(result.app_config, res.body)
-        if response_body then
-            ngx.status = res.status
-            ngx.header["Content-Length"] = #response_body
-            ngx.print(response_body)
-        else
-            ngx.log(ngx.ERR, "响应处理失败")
-            ngx.status = 500
-            ngx.say('{"error":"Failed to process response"}')
-        end
-        ngx.log(ngx.DEBUG, "成功响应处理完成")
+        ngx.status = res.status
+        ngx.say(response_body)
     else
         -- 对于错误响应，直接返回，不进行加密和签名
         ngx.status = res.status
-        ngx.header["Content-Length"] = #(res.body or "")
-        ngx.print(res.body or "")
+        ngx.say(res.body)
     end
-    
-    ngx.log(ngx.DEBUG, "请求处理完成")
 end
 
 -- 健康检查

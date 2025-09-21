@@ -1,6 +1,7 @@
 -- 响应处理模块
-local redis_utils = require "redis_utils"
+local redis_utils = require "optimized_redis_utils"
 local sm_crypto_utils = require "gm_sm_crypto_utils"
+local context = require "context"
 local cjson = require "cjson"
 
 local _M = {}
@@ -24,9 +25,11 @@ end
 
 -- 签名响应体
 function _M.sign_response(app_config, response_body)
+    ngx.log(ngx.DEBUG, "SM2签名 - 原始数据: ", response_body)
+    ngx.log(ngx.DEBUG, "SM2签名 - openresty网关回签私钥: ", app_config.gateway_sm2_private_key)
     -- 使用网关的SM2私钥对响应体进行签名（使用十六进制格式的私钥）
     local signature = sm_crypto_utils.sm2_sign(response_body, app_config.gateway_sm2_private_key)
-    
+    ngx.log(ngx.DEBUG, "SM2签名 - openresty网关回签结果: ", signature)
     if not signature then
         ngx.log(ngx.ERR, "响应体签名失败")
         return nil, "Failed to sign response"

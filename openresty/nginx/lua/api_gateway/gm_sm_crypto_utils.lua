@@ -25,15 +25,7 @@ end
 
 -- SM2签名
 function _M.sm2_sign(data, private_key)
-    -- 先对数据进行SM3哈希处理
-    local hashed_data = _M.sm3_hash(data)
-    ngx.log(ngx.DEBUG, "SM2签名 - 原始数据: ", data)
-    ngx.log(ngx.DEBUG, "SM2签名 - SM3哈希后数据: ", hashed_data)
-    ngx.log(ngx.DEBUG, "SM2签名 - 私钥: ", private_key)
-    
-    local signature = gmCryptor.sm2Signature(hashed_data, private_key)
-    
-    ngx.log(ngx.DEBUG, "SM2签名 - 签名结果: ", signature)
+    local signature = gmCryptor.sm2Signature(data, private_key)
     return signature
 end
 
