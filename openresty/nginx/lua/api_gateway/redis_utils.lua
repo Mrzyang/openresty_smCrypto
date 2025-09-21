@@ -1,4 +1,4 @@
--- Redis工具模块
+-- 优化的Redis工具模块，使用共享字典缓存App配置
 local redis = require "resty.redis"
 local cjson = require "cjson"
 
@@ -8,6 +8,11 @@ local _M = {}
 local REDIS_HOST = "192.168.56.2"
 local REDIS_PORT = 6379
 local REDIS_TIMEOUT = 1000 -- 1秒超时
+local CACHE_TTL = 300 -- 5分钟缓存时间
+
+-- Redis连接池配置
+local REDIS_KEEPALIVE_TIMEOUT = 60000 -- 60秒
+local REDIS_KEEPALIVE_POOL_SIZE = 32 -- 连接池大小
 
 -- 获取Redis连接
 function _M.get_redis_connection()
@@ -23,24 +28,21 @@ function _M.get_redis_connection()
     return red
 end
 
--- 关闭Redis连接
+-- 将Redis连接放回连接池
 function _M.close_redis_connection(red)
     if red then
-        local ok, err = red:close()
+        -- 将连接放回连接池而不是直接关闭
+        local ok, err = red:set_keepalive(REDIS_KEEPALIVE_TIMEOUT, REDIS_KEEPALIVE_POOL_SIZE)
         if not ok then
-            ngx.log(ngx.ERR, "Failed to close Redis connection: ", err)
+            ngx.log(ngx.ERR, "Failed to set Redis connection keepalive: ", err)
+            -- 如果放回连接池失败，则关闭连接
+            red:close()
         end
     end
 end
 
--- 获取App配置
-function _M.get_app_config(appid)
-    ngx.log(ngx.DEBUG, "------------appid: ", appid)
-    -- 确保appid是字符串类型
-    if not appid or type(appid) ~= "string" then
-        return nil, "Invalid appid: must be a string, got " .. type(appid)
-    end
-    
+-- 从Redis获取App配置
+local function fetch_app_config_from_redis(appid)
     local red, err = _M.get_redis_connection()
     if not red then
         return nil, err
@@ -61,7 +63,48 @@ function _M.get_app_config(appid)
     return app_config
 end
 
--- 获取API配置
+-- 获取App配置（带缓存）
+function _M.get_app_config(appid)
+    ngx.log(ngx.DEBUG, "------------appid: ", appid)
+    -- 确保appid是字符串类型
+    if not appid or type(appid) ~= "string" then
+        return nil, "Invalid appid: must be a string, got " .. type(appid)
+    end
+    
+    -- 尝试从共享字典获取缓存
+    local cache = ngx.shared.app_config_cache
+    if cache then
+        local cached_config, flags = cache:get("app:" .. appid)
+        if cached_config then
+            local ok, app_config = pcall(cjson.decode, cached_config)
+            if ok then
+                ngx.log(ngx.DEBUG, "App config retrieved from cache")
+                return app_config
+            else
+                ngx.log(ngx.WARN, "Failed to decode cached app config, fetching from Redis")
+            end
+        end
+    end
+    
+    -- 从Redis获取
+    local app_config, err = fetch_app_config_from_redis(appid)
+    if not app_config then
+        return nil, err
+    end
+    
+    -- 存储到共享字典缓存
+    if cache then
+        local encoded_config = cjson.encode(app_config)
+        local ok, err = cache:set("app:" .. appid, encoded_config, CACHE_TTL)
+        if not ok then
+            ngx.log(ngx.WARN, "Failed to cache app config: ", err)
+        end
+    end
+    
+    return app_config
+end
+
+-- 获取API配置（根据API ID）
 function _M.get_api_config(api_id)
     local red, err = _M.get_redis_connection()
     if not red then
@@ -69,6 +112,30 @@ function _M.get_api_config(api_id)
     end
     
     local res, err = red:get("api:" .. api_id)
+    _M.close_redis_connection(red)
+    
+    if not res or res == ngx.null then
+        return nil, "API not found"
+    end
+    
+    local ok, api_config = pcall(cjson.decode, res)
+    if not ok then
+        return nil, "Failed to parse API config"
+    end
+    
+    return api_config
+end
+
+-- 根据路径获取API配置
+function _M.get_api_config_by_path(path)
+    local red, err = _M.get_redis_connection()
+    if not red then
+        return nil, err
+    end
+    
+    -- 使用新的键格式直接获取API配置
+    local key = "api:path:" .. path
+    local res, err = red:get(key)
     _M.close_redis_connection(red)
     
     if not res or res == ngx.null then

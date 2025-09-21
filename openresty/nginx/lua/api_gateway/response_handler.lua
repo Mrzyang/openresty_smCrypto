@@ -1,5 +1,5 @@
 -- 响应处理模块
-local redis_utils = require "optimized_redis_utils"
+local redis_utils = require "redis_utils"
 local sm_crypto_utils = require "gm_sm_crypto_utils"
 local context = require "context"
 local cjson = require "cjson"

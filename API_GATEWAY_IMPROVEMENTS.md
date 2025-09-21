@@ -76,7 +76,7 @@ API网关在代理请求到后端服务时，没有正确传递解密后的请�
 
 ### 新增文件
 - `context.lua`：用于在Lua模块间共享数据
-- `optimized_redis_utils.lua`：优化的Redis工具模块，包含缓存机制
+- `redis_utils.lua`：优化的Redis工具模块，包含缓存机制
 
 ### 修改文件
 - `gateway.lua`：更新请求处理逻辑，添加代理到后端服务的功能

@@ -1,5 +1,5 @@
 -- 请求验证模块
-local redis_utils = require "optimized_redis_utils"
+local redis_utils = require "redis_utils"
 local sm_crypto_utils = require "gm_sm_crypto_utils"
 local context = require "context"
 local cjson = require "cjson"
@@ -101,35 +101,41 @@ function _M.validate_api_subscription(appid, uri, method)
         return false, "Failed to get app subscriptions"
     end
     
-    -- 查找匹配的API
-    local api_config, err = redis_utils.find_api_by_path(uri, method)
+    -- 查找匹配的API（使用新的方法根据路径获取API配置）
+    local api_config, err = redis_utils.get_api_config_by_path(uri)
     if not api_config then
         ngx.log(ngx.ERR, "API未找到: ", uri, " ", method)
         return false, "API not found"
     end
     
+    -- 检查API方法是否匹配
+    if api_config.method ~= method then
+        ngx.log(ngx.ERR, "API方法不匹配: ", uri, " ", method)
+        return false, "API method not match"
+    end
+    
     -- 检查API是否在订阅列表中
     local is_subscribed = false
-    for _, api_id in ipairs(subscriptions.subscribed_apis) do
-        if api_id == api_config.api_id then
+    for _, api_path in ipairs(subscriptions.subscribed_apis) do
+        if api_path == api_config.path then
             is_subscribed = true
             break
         end
     end
     
     if not is_subscribed then
-        ngx.log(ngx.ERR, "App未订阅此API: ", appid, " ", api_config.api_id)
+        ngx.log(ngx.ERR, "App未订阅此API: ", appid, " ", api_config.path)
         return false, "API not subscribed"
     end
     
     -- 检查API状态和订阅状态
     if api_config.status ~= "active" then
-        ngx.log(ngx.ERR, "API状态不活跃: ", api_config.api_id)
+        ngx.log(ngx.ERR, "API状态不活跃: ", api_config.path)
         return false, "API is disabled"
     end
     
-    if subscriptions.subscription_status[api_config.api_id] ~= "active" then
-        ngx.log(ngx.ERR, "API订阅状态不活跃: ", api_config.api_id)
+    if subscriptions.subscription_status[api_config.path] ~= "active" then
+        ngx.log(ngx.ERR, "API订阅状态不活跃: ", api_config.path)
         return false, "API subscription is disabled"
     end
     

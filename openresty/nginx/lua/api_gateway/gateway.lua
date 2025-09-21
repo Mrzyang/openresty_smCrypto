@@ -1,9 +1,10 @@
 -- API网关主入口
 local request_validator = require "request_validator"
 local response_handler = require "response_handler"
-local redis_utils = require "optimized_redis_utils"
+local redis_utils = require "redis_utils"
 local context = require "context"
 local cjson = require "cjson"
+local http = require "resty.http"
 
 local _M = {}
 
@@ -25,6 +26,9 @@ function _M.handle_request()
     ngx.log(ngx.DEBUG, "接收到请求: ", method, " ", uri)
     ngx.log(ngx.DEBUG, "App ID: ", appid)
     ngx.log(ngx.DEBUG, "请求体大小: ", body and #body or 0)
+    if body then
+        ngx.log(ngx.DEBUG, "请求体内容: ", body)
+    end
     
     -- 检查必需的请求头
     if not appid then
@@ -66,72 +70,132 @@ function _M.handle_request()
     context.set_app_config(result.app_config)
     
     -- 获取解密后的请求体
-    local decrypted_body = result.decrypted_body or body
+    local decrypted_body = result.decrypted_body
     ngx.log(ngx.DEBUG, "解密后的请求体: ", decrypted_body)
     ngx.log(ngx.DEBUG, "解密后请求体大小: ", decrypted_body and #decrypted_body or 0)
+    -- 添加更多调试信息
+    if decrypted_body then
+        ngx.log(ngx.DEBUG, "解密后请求体类型: ", type(decrypted_body))
+        -- 只记录前100个字符，避免日志过大
+        local display_body = decrypted_body
+        if #decrypted_body > 100 then
+            display_body = string.sub(decrypted_body, 1, 100) .. "...(truncated)"
+        end
+        ngx.log(ngx.DEBUG, "解密后请求体内容(前100字符): ", display_body)
+    end
     
-    -- 2. 请求验证通过，代理到后端服务
-    -- 使用ngx.location.capture代理请求到内部location
-    -- 保持原始URI，Nginx配置会正确处理路径映射
-    local backend_uri = uri
+    -- 2. 根据客户端请求的uri匹配到redis中的backend_uri和backend_ip_list
+    local api_config, err = redis_utils.get_api_config_by_path(uri)
+    if not api_config then
+        ngx.log(ngx.ERR, "无法从Redis获取API配置: ", err)
+        ngx.status = 502
+        ngx.say('{"error":"Failed to get API config"}')
+        return
+    end
     
-    -- 根据原始请求方法设置代理方法
-    local http_method = ngx.HTTP_GET
-    if method == "POST" then
-        http_method = ngx.HTTP_POST
-    elseif method == "PUT" then
-        http_method = ngx.HTTP_PUT
-    elseif method == "DELETE" then
-        http_method = ngx.HTTP_DELETE
-    elseif method == "PATCH" then
-        http_method = ngx.HTTP_PATCH
+    -- 获取后端URI
+    local backend_uri = api_config.backend_uri
+    if not backend_uri then
+        ngx.log(ngx.ERR, "API配置中缺少backend_uri")
+        ngx.status = 502
+        ngx.say('{"error":"Missing backend_uri in API config"}')
+        return
+    end
+    
+    -- 获取后端IP列表
+    local backend_ip_list = api_config.backend_ip_list
+    if not backend_ip_list or #backend_ip_list == 0 then
+        ngx.log(ngx.ERR, "API配置中缺少backend_ip_list")
+        ngx.status = 502
+        ngx.say('{"error":"Missing backend_ip_list in API config"}')
+        return
+    end
+    
+    -- 选择第一个后端服务器（实际应用中可以实现更复杂的负载均衡策略）
+    local backend_ip_port = backend_ip_list[1]
+    local backend_host, backend_port = string.match(backend_ip_port, "([^:]+):(%d+)")
+    if not backend_host or not backend_port then
+        ngx.log(ngx.ERR, "无效的后端服务器地址格式: ", backend_ip_port)
+        ngx.status = 502
+        ngx.say('{"error":"Invalid backend server address format"}')
+        return
     end
     
     -- 构造传递给后端的请求头
     local backend_headers = {}
-    for k, v in pairs(headers) do
-        -- 移除签名相关的头部，避免后端处理
-        if k ~= "x-signature" and k ~= "x-nonce" and k ~= "x-timestamp" then
-            backend_headers[k] = v
-        end
-    end
-    
     -- 设置正确的Content-Type
     backend_headers["Content-Type"] = "application/json"
-    backend_headers["Content-Length"] = #decrypted_body
-    ngx.log(ngx.DEBUG, "准备代理请求到后端: ", "/internal_backend" .. backend_uri)
-    ngx.log(ngx.DEBUG, "代理方法: ", http_method)
-    ngx.log(ngx.DEBUG, "decrypted_body大小: ", decrypted_body and #decrypted_body or 0)
     
-    -- 确保我们传递的是有效的请求体
+    -- 获取要转发的请求体
     local proxy_body = decrypted_body
     if proxy_body == nil then
         proxy_body = ""
     end
-    ngx.log(ngx.DEBUG, "代理到后端express的请求体: ", proxy_body)
-    ngx.log(ngx.DEBUG, "代理到后端express的请求体大小: ", proxy_body and #proxy_body or 0)
-    -- 使用ngx.location.capture代理请求到后端服务
-    local res = ngx.location.capture(
-        "/internal_backend" .. backend_uri,
-        {
-            method = http_method,
-            body = proxy_body,
-            headers = backend_headers
-        }
-    )
     
-    ngx.log(ngx.DEBUG, "后端响应状态: ", res.status)
-    ngx.log(ngx.DEBUG, "后端响应体大小: ", res.body and #res.body or 0)
-    ngx.log(ngx.DEBUG, "后端响应体: ", res.body)
+    -- 确保proxy_body是字符串类型
+    if type(proxy_body) ~= "string" then
+        proxy_body = tostring(proxy_body)
+    end
     
-    -- 检查后端响应
+    -- 设置Content-Length为实际的请求体长度
+    backend_headers["Content-Length"] = tostring(#proxy_body)
+    
+    -- 记录原始请求体内容用于调试
+    ngx.log(ngx.DEBUG, "原始proxy_body内容: ", proxy_body)
+    ngx.log(ngx.DEBUG, "原始proxy_body长度: ", #proxy_body)
+    
+    -- 使用lua-resty-http模块代理请求到后端服务
+    local httpc = http.new()
+    -- 增加超时时间，避免间歇性超时问题
+    httpc:set_timeout(60000) -- 60秒超时
+    
+    -- 启用连接池以优化性能
+    -- 连接池参数：最大空闲超时60秒，最大连接数32
+    local keepalive_timeout = 60000  -- 60秒
+    local keepalive_pool = 32
+    
+    -- 创建请求参数表，确保数据不会被修改
+    local request_params = {
+        method = method,
+        body = proxy_body,
+        headers = backend_headers
+    }
+    
+    -- 显式复制请求体内容，确保不会被垃圾回收
+    local body_copy = proxy_body
+    request_params.body = body_copy
+    
+    ngx.log(ngx.DEBUG, "发送请求前再次确认body长度: ", #body_copy)
+    ngx.log(ngx.DEBUG, "发送请求前再次确认body内容: ", body_copy)
+    
+    local res, err = httpc:request_uri("http://" .. backend_host .. ":" .. backend_port .. backend_uri, request_params)
+    
+    -- 将连接放回连接池以优化性能
+    httpc:set_keepalive(keepalive_timeout, keepalive_pool)
+    
+    -- 显式清理
+    body_copy = nil
+    request_params = nil
+    
     if not res then
-        ngx.log(ngx.ERR, "后端服务无响应")
+        ngx.log(ngx.ERR, "后端服务请求失败: ", err)
         ngx.status = 502
         ngx.say('{"error":"Bad Gateway"}')
         return
     end
     
+    ngx.log(ngx.DEBUG, "后端响应状态: ", res.status)
+    ngx.log(ngx.DEBUG, "后端响应体大小: ", res.body and #res.body or 0)
+    if res.body then
+        -- 只记录前100个字符，避免日志过大
+        local display_response = res.body
+        if #res.body > 100 then
+            display_response = string.sub(res.body, 1, 100) .. "...(truncated)"
+        end
+        ngx.log(ngx.DEBUG, "后端响应体内容(前100字符): ", display_response)
+    end
+    
+    -- 检查后端响应
     if res.status >= 500 then
         ngx.status = res.status
         ngx.say('{"error":"Backend service error"}')

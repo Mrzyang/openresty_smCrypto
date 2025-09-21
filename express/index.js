@@ -1,6 +1,5 @@
 // 导入 express 和 morgan
 const express = require('express');
-const morgan = require('morgan');
 const cors = require('cors');
 const helmet = require('helmet');
 const Redis = require('ioredis');
@@ -13,90 +12,6 @@ const path = require('path');
 
 // 创建 Express 应用
 const app = express();
-
-// 创建日志目录
-const logDir = path.join(__dirname, 'logs');
-if (!fs.existsSync(logDir)) {
-  fs.mkdirSync(logDir, { recursive: true });
-}
-
-// 创建日志写入流
-const accessLogStream = fs.createWriteStream(path.join(logDir, 'access.log'), { flags: 'a' });
-const requestLogStream = fs.createWriteStream(path.join(logDir, 'requests.log'), { flags: 'a' });
-
-// 自定义日志格式函数
-const logRequestResponse = (req, res, next) => {
-  // 捕获请求信息
-  const startTime = new Date();
-  const requestData = {
-    timestamp: startTime.toISOString(),
-    method: req.method,
-    url: req.url,
-    headers: req.headers,
-    body: req.body,
-    query: req.query,
-    params: req.params,
-    ip: req.ip || req.connection.remoteAddress
-  };
-
-  // 保存原始的res.end函数
-  const originalEnd = res.end;
-  
-  // 重写res.end函数以捕获响应
-  res.end = function(chunk, encoding) {
-    const endTime = new Date();
-    const duration = endTime - startTime;
-    
-    // 处理响应体，确保正确显示内容而不是Buffer对象
-    let responseBody = chunk;
-    if (chunk && chunk instanceof Buffer) {
-      // 如果是Buffer，尝试转换为字符串
-      try {
-        responseBody = chunk.toString('utf8');
-        // 如果是JSON字符串，尝试解析为对象以便更好地格式化
-        if (responseBody.trim().startsWith('{') || responseBody.trim().startsWith('[')) {
-          responseBody = JSON.parse(responseBody);
-        }
-      } catch (e) {
-        // 如果解析失败，保持原始字符串
-        responseBody = chunk.toString('utf8');
-      }
-    } else if (typeof chunk === 'string') {
-      // 如果已经是字符串，检查是否为JSON
-      try {
-        if (chunk.trim().startsWith('{') || chunk.trim().startsWith('[')) {
-          responseBody = JSON.parse(chunk);
-        }
-      } catch (e) {
-        // 保持原始字符串
-      }
-    }
-    
-    // 获取响应信息
-    const responseData = {
-      timestamp: endTime.toISOString(),
-      statusCode: res.statusCode,
-      statusMessage: res.statusMessage,
-      headers: res.getHeaders(),
-      body: responseBody,
-      duration: duration + 'ms'
-    };
-    
-    // 记录请求和响应信息到日志文件
-    const logEntry = {
-      request: requestData,
-      response: responseData
-    };
-    
-    // 写入日志文件
-    requestLogStream.write(JSON.stringify(logEntry, null, 2) + '\n');
-    
-    // 调用原始的res.end函数
-    originalEnd.call(this, chunk, encoding);
-  };
-  
-  next();
-};
 
 // Redis客户端
 const redisClient = new Redis({
@@ -118,10 +33,20 @@ redisClient.on('connect', () => {
 // 中间件
 app.use(helmet());
 app.use(cors());
-app.use(morgan('combined', { stream: accessLogStream }));
-app.use(logRequestResponse); // 添加请求响应日志记录中间件
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// 添加请求日志中间件
+app.use((req, res, next) => {
+  console.log(`=== 收到请求 ===`);
+  console.log(`方法: ${req.method}`);
+  console.log(`URL: ${req.url}`);
+  console.log(`请求头:`, req.headers);
+  console.log(`请求体:`, req.body);
+  console.log(`请求体类型:`, typeof req.body);
+  console.log(`请求体是否为Buffer:`, Buffer.isBuffer(req.body));
+  next();
+});
 
 // 健康检查
 app.get('/health', (req, res) => {
@@ -168,7 +93,8 @@ app.get('/api/user/list', (req, res) => {
 // 示例API - 创建用户
 app.post('/api/user/create', (req, res) => {
   const { name, email } = req.body;
-  
+  console.log(req.body)
+  console.log('Received user creation request:', JSON.stringify(req.body));
   if (!name || !email) {
     return res.status(400).json({
       code: 400,

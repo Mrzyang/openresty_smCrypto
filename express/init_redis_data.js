@@ -118,7 +118,8 @@ async function initApiData() {
       name: '用户信息查询',
       path: '/api/user/info',
       method: 'GET',
-      backend_url: 'http://127.0.0.1:3000/api/user/info',
+      backend_uri: '/api/user/info',
+      backend_ip_list: ['127.0.0.1:3000', '192.168.56.101:3000'],
       status: 'active',
       rate_limit: 1000,
       timeout: 30,
@@ -130,7 +131,8 @@ async function initApiData() {
       name: '用户列表查询',
       path: '/api/user/list',
       method: 'GET',
-      backend_url: 'http://127.0.0.1:3000/api/user/list',
+      backend_uri: '/api/user/list',
+      backend_ip_list: ['127.0.0.1:3000', '192.168.56.101:3000'],
       status: 'active',
       rate_limit: 1000,
       timeout: 30,
@@ -142,7 +144,8 @@ async function initApiData() {
       name: '创建用户',
       path: '/api/user/create',
       method: 'POST',
-      backend_url: 'http://127.0.0.1:3000/api/user/create',
+      backend_uri: '/api/user/create',
+      backend_ip_list: ['127.0.0.1:3000', '192.168.56.101:3000'],
       status: 'active',
       rate_limit: 100,
       timeout: 30,
@@ -154,7 +157,8 @@ async function initApiData() {
       name: '系统状态查询',
       path: '/api/system/status',
       method: 'GET',
-      backend_url: 'http://127.0.0.1:3000/api/system/status',
+      backend_uri: '/api/system/status',
+      backend_ip_list: ['127.0.0.1:3000', '192.168.56.101:3000'],
       status: 'active',
       rate_limit: 2000,
       timeout: 30,
@@ -166,7 +170,8 @@ async function initApiData() {
       name: '健康检查',
       path: '/health',
       method: 'GET',
-      backend_url: 'http://127.0.0.1:3000/health',
+      backend_uri: '/health',
+      backend_ip_list: ['127.0.0.1:3000', '192.168.56.101:3000'],
       status: 'active',
       rate_limit: 5000,
       timeout: 10,
@@ -175,9 +180,11 @@ async function initApiData() {
     }
   ];
   
+  // 使用新的键格式存储API数据: api:path:$uri
   for (const api of apis) {
-    await client.set(`api:${api.api_id}`, JSON.stringify(api));
-    console.log(`API配置已创建: ${api.api_id} - ${api.name}`);
+    const key = `api:path:${api.path}`;
+    await client.set(key, JSON.stringify(api));
+    console.log(`API配置已创建: ${key} - ${api.name}`);
   }
 }
 
@@ -188,24 +195,24 @@ async function initSubscriptionData() {
   const subscriptions = [
     {
       appid: 'app_001',
-      subscribed_apis: ['api_001', 'api_002', 'api_003', 'api_004', 'api_005'],
+      subscribed_apis: ['/api/user/info', '/api/user/list', '/api/user/create', '/api/system/status', '/health'],
       subscription_status: {
-        'api_001': 'active',
-        'api_002': 'active',
-        'api_003': 'active',
-        'api_004': 'active',
-        'api_005': 'active'
+        '/api/user/info': 'active',
+        '/api/user/list': 'active',
+        '/api/user/create': 'active',
+        '/api/system/status': 'active',
+        '/health': 'active'
       },
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     },
     {
       appid: 'app_002',
-      subscribed_apis: ['api_001', 'api_002', 'api_005'],
+      subscribed_apis: ['/api/user/info', '/api/user/list', '/health'],
       subscription_status: {
-        'api_001': 'active',
-        'api_002': 'active',
-        'api_005': 'active'
+        '/api/user/info': 'active',
+        '/api/user/list': 'active',
+        '/health': 'active'
       },
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -224,11 +231,12 @@ async function clearExistingData() {
   
   const keys = await client.keys('app:*');
   const apiKeys = await client.keys('api:*');
+  const apiPathKeys = await client.keys('api:path:*');  // 新的API键格式
   const subKeys = await client.keys('app_subscription:*');
   const nonceKeys = await client.keys('nonce:*');
   const logKeys = await client.keys('request_log:*');
   
-  const allKeys = [...keys, ...apiKeys, ...subKeys, ...nonceKeys, ...logKeys];
+  const allKeys = [...keys, ...apiKeys, ...apiPathKeys, ...subKeys, ...nonceKeys, ...logKeys];
   
   if (allKeys.length > 0) {
     await client.del(allKeys);
@@ -243,11 +251,11 @@ async function showCurrentData() {
   console.log('\n=== 当前Redis数据 ===');
   
   const appKeys = await client.keys('app:*');
-  const apiKeys = await client.keys('api:*');
+  const apiPathKeys = await client.keys('api:path:*');  // 新的API键格式
   const subKeys = await client.keys('app_subscription:*');
   
   console.log(`App配置 (${appKeys.length}):`, appKeys);
-  console.log(`API配置 (${apiKeys.length}):`, apiKeys);
+  console.log(`API配置 (${apiPathKeys.length}):`, apiPathKeys);
   console.log(`订阅配置 (${subKeys.length}):`, subKeys);
   
   for (const key of appKeys) {
@@ -270,7 +278,7 @@ async function showCurrentData() {
     }
   }
   
-  for (const key of apiKeys) {
+  for (const key of apiPathKeys) {
     const data = await client.get(key);
     const api = JSON.parse(data);
     console.log(`${key}: ${api.name} (${api.method} ${api.path})`);
