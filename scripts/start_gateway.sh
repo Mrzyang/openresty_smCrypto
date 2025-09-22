@@ -3,13 +3,27 @@
 # API网关启动脚本
 # 用于启动基于已编译OpenResty的API网关
 
-# 配置
-OPENRESTY_HOME="/opt/zy/software/openresty"
-EXPRESS_HOME="/opt/zy/software/express"
-REDIS_HOST="192.168.56.2"
-REDIS_PORT="6379"
-GATEWAY_PORT="8082"
-BACKEND_PORT="3000"
+# 获取脚本所在目录
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+
+# 检查并加载.env文件
+if [ -f "$PROJECT_DIR/.env" ]; then
+    set -a
+    source "$PROJECT_DIR/.env"
+    set +a
+    echo "[INFO] Loaded configuration from .env file"
+else
+    echo "[WARN] .env file not found, using default configuration"
+    
+    # 默认配置
+    OPENRESTY_HOME="/opt/zy/software/openresty"
+    EXPRESS_HOME="/opt/zy/software/express"
+    REDIS_HOST="192.168.56.2"
+    REDIS_PORT="6379"
+    GATEWAY_PORT="8082"
+    BACKEND_PORT="3000"
+fi
 
 # 颜色定义
 RED='\033[0;31m'

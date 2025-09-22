@@ -14,10 +14,13 @@ const { requestLogger, logError } = require('./logger');
 // 创建 Express 应用
 const app = express();
 
+// 从环境变量获取Redis配置，如果没有则使用默认值
+const REDIS_HOST = process.env.REDIS_HOST || '192.168.56.2';
+const REDIS_PORT = process.env.REDIS_PORT || '6379';
 // Redis客户端
 const redisClient = new Redis({
-  host: '192.168.56.2',
-  port: 6379,
+  host: REDIS_HOST,
+  port: REDIS_PORT,
   retryDelayOnFailover: 100,
   enableReadyCheck: false,
   maxRetriesPerRequest: null,

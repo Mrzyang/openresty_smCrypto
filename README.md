@@ -44,7 +44,12 @@ vim scripts/deploy_to_server.sh
 
 ### 3. 在服务器上初始化
 
-```bash
+```
+# 使用统一配置初始化网关（推荐）
+cd /opt/zy/software/scripts
+./init_gateway.sh
+
+# 或者分别初始化
 # 初始化Redis数据
 cd /opt/zy/software/scripts
 ./init_redis_data.sh
@@ -59,6 +64,36 @@ cd /opt/zy/software/scripts
 ./test_gateway.sh
 ```
 
+## 配置管理
+
+### 统一配置文件
+
+系统使用项目根目录下的 `.env` 文件来统一管理所有配置：
+
+```bash
+# 查看当前配置
+cd /opt/zy/software/scripts
+./init_gateway.sh --show-config
+```
+
+### 配置初始化脚本
+
+新增的 `init_gateway.sh` 脚本可以：
+- 读取 `.env` 文件中的配置
+- 自动更新相关配置文件
+- 初始化Redis数据
+
+```bash
+# 完整初始化（更新配置并初始化Redis）
+./init_gateway.sh
+
+# 仅更新配置文件
+./init_gateway.sh --config-only
+
+# 仅初始化Redis数据
+./init_gateway.sh --redis-only
+```
+
 ## 管理脚本
 
 | 脚本 | 功能 |
@@ -69,6 +104,7 @@ cd /opt/zy/software/scripts
 | `status_gateway.sh` | 查看服务状态 |
 | `test_gateway.sh` | 测试服务功能 |
 | `init_redis_data.sh` | 初始化Redis数据 |
+| `init_gateway.sh` | 统一配置初始化 |
 
 ## 服务访问
 

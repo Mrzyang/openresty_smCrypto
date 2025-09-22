@@ -3,10 +3,24 @@
 # Redis数据初始化脚本
 # 用于初始化API网关所需的Redis数据
 
-# 配置
-EXPRESS_HOME="/opt/zy/software/express"
-REDIS_HOST="192.168.56.2"
-REDIS_PORT="6379"
+# 获取脚本所在目录
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+
+# 检查并加载.env文件
+if [ -f "$PROJECT_DIR/.env" ]; then
+    set -a
+    source "$PROJECT_DIR/.env"
+    set +a
+    echo "[INFO] Loaded configuration from .env file"
+else
+    echo "[WARN] .env file not found, using default configuration"
+    
+    # 默认配置
+    EXPRESS_HOME="/opt/zy/software/express"
+    REDIS_HOST="192.168.56.2"
+    REDIS_PORT="6379"
+fi
 
 # 颜色定义
 RED='\033[0;31m'

@@ -3,8 +3,19 @@
 # API网关重启脚本
 # 用于重启API网关服务
 
-# 配置
+# 获取脚本所在目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+
+# 检查并加载.env文件
+if [ -f "$PROJECT_DIR/.env" ]; then
+    set -a
+    source "$PROJECT_DIR/.env"
+    set +a
+    echo "[INFO] Loaded configuration from .env file"
+fi
+
+# 配置
 
 # 颜色定义
 RED='\033[0;31m'

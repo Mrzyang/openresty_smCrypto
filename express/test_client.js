@@ -14,6 +14,10 @@ const CONFIG = {
   sm4_iv: "your_sm4_iv_here", // 32字符十六进制字符串
 };
 
+// 从环境变量获取Redis配置，如果没有则使用默认值
+const REDIS_HOST = process.env.REDIS_HOST || '192.168.56.2';
+const REDIS_PORT = process.env.REDIS_PORT || '6379';
+
 // 生成测试用的SM2密钥对
 function generateTestKeys() {
   const keyPair = sm2.generateKeyPairHex();
@@ -251,7 +255,7 @@ async function sendApiRequest(method, path, body = "", queryString = "") {
       }
     }
 
-    console.log("==================\n");
+    console.log("==============================================\n");
 
     return {
       status: response.status,
@@ -274,12 +278,12 @@ async function sendApiRequest(method, path, body = "", queryString = "") {
   }
 }
 
-// 从Redis获取App配置
+// 从环境变量获取Redis配置，如果没有则使用默认值
 async function getAppConfigFromRedis(appid) {
   const Redis = require("ioredis");
   const redisClient = new Redis({
-    host: "192.168.56.2",
-    port: 6379,
+    host: REDIS_HOST,
+    port: parseInt(REDIS_PORT),
     retryDelayOnFailover: 100,
     enableReadyCheck: false,
     maxRetriesPerRequest: null,

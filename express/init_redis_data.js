@@ -2,10 +2,14 @@
 const Redis = require('ioredis');
 const sm2 = require('sm-crypto').sm2;
 
+// 从环境变量获取Redis配置，如果没有则使用默认值
+const REDIS_HOST = process.env.REDIS_HOST || '192.168.56.2';
+const REDIS_PORT = process.env.REDIS_PORT || '6379';
+
 // Redis连接
 const client = new Redis({
-  host: '192.168.56.2',  // 使用您指定的Redis地址
-  port: 6379,
+  host: REDIS_HOST,
+  port: parseInt(REDIS_PORT),
   retryDelayOnFailover: 100,
   enableReadyCheck: false,
   maxRetriesPerRequest: null,
