@@ -108,6 +108,67 @@ app.post('/api/user/create', (req, res) => {
   });
 });
 
+// 示例API - 更新用户
+app.put('/api/user/update', (req, res) => {
+  const { id, name, email } = req.body;
+  console.log('Received user update request:', JSON.stringify(req.body));
+  
+  // 验证必需字段
+  if (!id) {
+    return res.status(400).json({
+      code: 400,
+      message: 'Missing required field: id',
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  // 检查至少提供一个可更新的字段
+  if (!name && !email) {
+    return res.status(400).json({
+      code: 400,
+      message: 'At least one of name or email must be provided',
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  res.json({
+    code: 0,
+    message: 'User updated successfully',
+    data: {
+      id,
+      name: name || 'Unchanged',
+      email: email || 'Unchanged',
+      updatedAt: new Date().toISOString()
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// 示例API - 删除用户
+app.delete('/api/user/delete', (req, res) => {
+  const { id } = req.body;
+  console.log('Received user deletion request:', JSON.stringify(req.body));
+  
+  // 验证必需字段
+  if (!id) {
+    return res.status(400).json({
+      code: 400,
+      message: 'Missing required field: id',
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  res.json({
+    code: 0,
+    message: 'User deleted successfully',
+    data: {
+      id,
+      deletedAt: new Date().toISOString()
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 // 示例API - 系统状态
 app.get('/api/system/status', (req, res) => {
   res.json({

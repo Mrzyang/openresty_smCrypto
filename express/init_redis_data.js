@@ -177,6 +177,32 @@ async function initApiData() {
       timeout: 10,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
+    },
+    {
+      api_id: 'api_006',
+      name: '更新用户',
+      path: '/api/user/update',
+      method: 'PUT',
+      backend_uri: '/api/user/update',
+      backend_ip_list: ['127.0.0.1:3000', '192.168.56.101:3000'],
+      status: 'active',
+      rate_limit: 100,
+      timeout: 30,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      api_id: 'api_007',
+      name: '删除用户',
+      path: '/api/user/delete',
+      method: 'DELETE',
+      backend_uri: '/api/user/delete',
+      backend_ip_list: ['127.0.0.1:3000', '192.168.56.101:3000'],
+      status: 'active',
+      rate_limit: 100,
+      timeout: 30,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     }
   ];
   
@@ -195,11 +221,13 @@ async function initSubscriptionData() {
   const subscriptions = [
     {
       appid: 'app_001',
-      subscribed_apis: ['/api/user/info', '/api/user/list', '/api/user/create', '/api/system/status', '/health'],
+      subscribed_apis: ['/api/user/info', '/api/user/list', '/api/user/create', '/api/user/update', '/api/user/delete', '/api/system/status', '/health'],
       subscription_status: {
         '/api/user/info': 'active',
         '/api/user/list': 'active',
         '/api/user/create': 'active',
+        '/api/user/update': 'active',
+        '/api/user/delete': 'active',
         '/api/system/status': 'active',
         '/health': 'active'
       },

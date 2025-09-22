@@ -1,1 +1,22 @@
+# 用户管理API测试命令
+
+## 1. 创建用户
 node test_client.js single POST /api/user/create '{"name":"Test User","email":"test@example.com"}'
+
+## 2. 更新用户
+node test_client.js single PUT /api/user/update '{"id":12345,"name":"Updated User","email":"updated@example.com"}'
+
+## 3. 删除用户
+node test_client.js single DELETE /api/user/delete '{"id":12345}'
+
+## 4. 查询用户列表
+node test_client.js single GET /api/user/list
+
+## 5. 查询用户信息
+node test_client.js single GET /api/user/info
+
+## 6. 系统状态
+node test_client.js single GET /api/system/status
+
+## 7. 健康检查
+node test_client.js single GET /health
