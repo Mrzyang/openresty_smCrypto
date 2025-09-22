@@ -15,8 +15,8 @@
 - **部署操作系统**: Debian12、内核版本6.1.0-37-amd64、ldd (Debian GLIBC 2.36-9+deb12u13) 2.36
 - **中间件版本**: openresty-1.27.1.2（把openssl-1.1.1w、pcre2-10.46、zlib-1.3.1编译进去）、nodejs_v22.17.1
 - **网关国密算法库**: 通过ffi加载基于C语言openssl_v1.1.1编译出来的gmCryptor-c-linux-x64.so或基于CGO语言根据github.com/tjfoc/gmsm v1.4.1编译出来的gmCryptor-go.lua（参考项目https://github.com/seahigh/GMCryptor）;  nodejs的国密算法用 sm-crypto_v0.3.13(参考项目https://github.com/JuneAndGreen/sm-crypto)
-- **签名算法**: sm2+sm3杂凑+ASN.1 DER编码，结果为16进制字符串
-- **报文加密算法**: sm4-cbc(需要key和iv)，得到16进制字符串，最后base64编码
+- **签名算法**: sm2+sm3杂凑+ASN.1 DER编码，默认userId值为 1234567812345678，结果为16进制utf8字符串
+- **报文加密算法**: sm4-cbc(需要key和iv，默认使用PKCS7Padding填充)，得到16进制utf8字符串，最后base64编码
 
 ## 系统架构
 
@@ -32,7 +32,7 @@ graph TD
 
 ### 1. 在Windows上准备文件
 
-确保项目结构如下：
+确保项目结构如下(项目路径可根据.env文件修改相关配置)：
 ```
 software/
 ├── openresty/          # 已编译的OpenResty
@@ -43,14 +43,9 @@ software/
 ### 2. 在服务器上初始化
 
 ```
-# 使用统一配置初始化网关（推荐，其中已包含初始化redis数据）
+# 使用统一配置初始化网关（其中已包含初始化redis数据）
 cd /opt/zy/software/scripts
 ./init_gateway.sh
-
-# 或者分别初始化
-# 初始化Redis数据
-cd /opt/zy/software/scripts
-./init_redis_data.sh
 
 # 启动服务
 ./start_gateway.sh
@@ -59,7 +54,8 @@ cd /opt/zy/software/scripts
 ./status_gateway.sh
 
 # 测试服务
-./test_gateway.sh
+cd /opt/zy/software/express
+执行command.txt中的命令
 ```
 
 ## 配置管理
@@ -100,7 +96,6 @@ cd /opt/zy/software/scripts
 | `stop_gateway.sh` | 停止API网关服务 |
 | `restart_gateway.sh` | 重启API网关服务 |
 | `status_gateway.sh` | 查看服务状态 |
-| `test_gateway.sh` | 测试服务功能 |
 | `init_redis_data.sh` | 初始化Redis数据 |
 | `init_gateway.sh` | 统一配置初始化 |
 
@@ -127,8 +122,8 @@ cd /opt/zy/software/scripts
 1. **国密算法**: SM2签名、SM3哈希、SM4对称加密
 2. **防重放攻击**: 基于nonce和时间戳的防重放机制
 3. **IP白名单**: 限制访问来源
-4. **签名验证**: 确保请求完整性和来源可信
-5. **加密传输**: 请求和响应都经过SM4加密
+4. **签名验证**: 确保请求完整性和来源可信(后端服务响应状态码为200时网关才加签)
+5. **加密传输**: 请求和响应经过SM4加密(后端服务响应状态码为200时网关才加密报文)
 6. **实时配置**: 无缓存设计，配置变更立即生效
 
 ## 实时配置
@@ -213,7 +208,6 @@ scripts/
 ├── stop_gateway.sh          # 停止脚本
 ├── restart_gateway.sh       # 重启脚本
 ├── status_gateway.sh        # 状态检查
-├── test_gateway.sh          # 测试脚本
 └── init_redis_data.sh       # 数据初始化
 ```
 

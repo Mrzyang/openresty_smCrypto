@@ -6,7 +6,7 @@
 客户端 -> OpenResty API网关 -> Express后端服务
          |                    |
          v                    v
-      Redis缓存            Redis存储
+      Redis(无缓存)            Redis存储
 ```
 
 ## Redis数据结构设计
@@ -16,31 +16,41 @@
 {
   "appid": "app_001",
   "name": "测试应用",
-  "status": "active", // active, disabled
-  "sm2_private_key": "-----BEGIN PRIVATE KEY-----...",
-  "sm2_public_key": "-----BEGIN PUBLIC KEY-----...",
-  "sm4_key": "1234567890abcdef",
-  "sm4_iv": "abcdef1234567890",
-  "ip_whitelist": ["192.168.1.100", "192.168.1.101"],
-  "nonce_window": 300, // 防重放时间窗口(秒)
-  "created_at": "2024-01-01T00:00:00Z",
-  "updated_at": "2024-01-01T00:00:00Z"
+  "status": "active",
+  "sm2_private_key": "54703123510a202f561e320b398f631f0fa15bcac999adc84ddb0b7ae6594545",
+  "sm2_public_key": "049e76887a7fc4d77518c7133e7027c1ed53b5c0e2b9d9e0395981a39e3520dc7c8a10edfae7705f110df8435ee31f74b60466b67cb8382e32b2032ec8553f7215",
+  "gateway_sm2_private_key": "e397c95eb118119f24e620e238f112f0329b9d3a379f1c790b605a0ef38286b8",
+  "gateway_sm2_public_key": "04af469f52c78ebffc80a4db22746a226bb8eb7722fa1524a0c5c1386ef9cd2af05c1d2e15dccbc5960cf013eb82452d4a702e4c5766eef74cdad62174b158357c",
+  "sm4_key": "bf2cd6b46a9da3efdac9549f46cf202d",
+  "sm4_iv": "8c35c753852dcbe4706a2d78c0d9f56c",
+  "ip_whitelist": [
+    "127.0.0.1",
+    "192.168.1.100",
+    "192.168.1.101"
+  ],
+  "nonce_window": 300,
+  "created_at": "2025-09-22T14:28:27.868Z",
+  "updated_at": "2025-09-22T14:28:27.869Z"
 }
 ```
 
-### 2. API配置 (api:{api_id})
+### 2. API配置 (api:path:{api_path})
 ```json
 {
   "api_id": "api_001",
   "name": "用户信息查询",
   "path": "/api/user/info",
   "method": "GET",
-  "backend_url": "http://127.0.0.1:3000/api/user/info",
-  "status": "active", // active, disabled
-  "rate_limit": 1000, // 每分钟请求数限制
-  "timeout": 30, // 超时时间(秒)
-  "created_at": "2024-01-01T00:00:00Z",
-  "updated_at": "2024-01-01T00:00:00Z"
+  "backend_uri": "/api/user/info",
+  "backend_ip_list": [
+    "127.0.0.1:3000",
+    "192.168.17.1:3000"
+  ],
+  "status": "active",
+  "rate_limit": 1000,
+  "timeout": 30,
+  "created_at": "2025-09-22T14:28:27.939Z",
+  "updated_at": "2025-09-22T14:28:27.939Z"
 }
 ```
 
@@ -48,13 +58,26 @@
 ```json
 {
   "appid": "app_001",
-  "subscribed_apis": ["api_001", "api_002"],
+  "subscribed_apis": [
+    "/api/user/info",
+    "/api/user/list",
+    "/api/user/create",
+    "/api/user/update",
+    "/api/user/delete",
+    "/api/system/status",
+    "/health"
+  ],
   "subscription_status": {
-    "api_001": "active",
-    "api_002": "active"
+    "/api/user/info": "active",
+    "/api/user/list": "active",
+    "/api/user/create": "active",
+    "/api/user/update": "active",
+    "/api/user/delete": "active",
+    "/api/system/status": "active",
+    "/health": "active"
   },
-  "created_at": "2024-01-01T00:00:00Z",
-  "updated_at": "2024-01-01T00:00:00Z"
+  "created_at": "2025-09-22T14:28:27.949Z",
+  "updated_at": "2025-09-22T14:28:27.949Z"
 }
 ```
 
@@ -102,7 +125,7 @@ Body: sm4_encrypted_data
 2. **防重放攻击**: 基于nonce和timestamp的防重放机制
 3. **IP白名单**: 限制访问来源
 4. **签名验证**: 确保请求完整性和来源可信
-5. **加密传输**: 请求和响应都经过SM4加密
+5. **加密传输**: 请求和响应经过SM4加密
 
 ## 管理功能
 
