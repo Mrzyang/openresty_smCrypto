@@ -3,7 +3,7 @@
 ## 部署环境
 
 - **操作系统**: Debian 12
-- **Redis**: 192.168.56.2:6379
+- **Redis**: 192.168.17.1:6379
 - **OpenResty**: 1.21.4.3
 - **Node.js**: 18.x
 - **后端服务**: 127.0.0.1:3000
@@ -57,11 +57,11 @@ sudo -u api-gateway npm install
 
 ### 4. 配置Redis
 
-确保Redis服务运行在 `192.168.56.2:6379`：
+确保Redis服务运行在 `192.168.17.1:6379`：
 
 ```bash
 # 检查Redis连接
-redis-cli -h 192.168.56.2 -p 6379 ping
+redis-cli -h 192.168.17.1 -p 6379 ping
 ```
 
 ### 5. 初始化数据
@@ -149,7 +149,7 @@ sudo journalctl -u api-gateway-backend -f
 主要配置项：
 - 监听端口: 80
 - 后端服务: 127.0.0.1:3000
-- Redis连接: 192.168.56.2:6379
+- Redis连接: 192.168.17.1:6379
 
 ### 后端配置
 
@@ -157,7 +157,7 @@ sudo journalctl -u api-gateway-backend -f
 
 主要配置项：
 - 监听端口: 3000
-- Redis连接: 192.168.56.2:6379
+- Redis连接: 192.168.17.1:6379
 
 ### Redis配置
 
@@ -212,7 +212,7 @@ sudo tar -czf api-gateway-config-$(date +%Y%m%d).tar.gz \
   /etc/systemd/system/api-gateway-backend.service
 
 # 备份Redis数据
-redis-cli -h 192.168.56.2 -p 6379 --rdb /backup/redis-$(date +%Y%m%d).rdb
+redis-cli -h 192.168.17.1 -p 6379 --rdb /backup/redis-$(date +%Y%m%d).rdb
 ```
 
 ## 故障排除
@@ -241,7 +241,7 @@ redis-cli -h 192.168.56.2 -p 6379 --rdb /backup/redis-$(date +%Y%m%d).rdb
    sudo systemctl status redis
    
    # 检查网络连接
-   telnet 192.168.56.2 6379
+   telnet 192.168.17.1 6379
    ```
 
 4. **配置文件错误**

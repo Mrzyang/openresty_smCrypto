@@ -3,8 +3,11 @@ const Redis = require('ioredis');
 const sm2 = require('sm-crypto').sm2;
 
 // 从环境变量获取Redis配置，如果没有则使用默认值
-const REDIS_HOST = process.env.REDIS_HOST || '192.168.56.2';
+const REDIS_HOST = process.env.REDIS_HOST || '192.168.17.1';
 const REDIS_PORT = process.env.REDIS_PORT || '6379';
+
+// 配置用于本地调试的后端服务器，会初始化在redis中
+const debuggingServer = "192.168.17.1:3000"
 
 // Redis连接
 const client = new Redis({
@@ -115,7 +118,6 @@ async function initAppData() {
 // 初始化API数据
 async function initApiData() {
   console.log('初始化API数据...');
-  
   const apis = [
     {
       api_id: 'api_001',
@@ -123,7 +125,7 @@ async function initApiData() {
       path: '/api/user/info',
       method: 'GET',
       backend_uri: '/api/user/info',
-      backend_ip_list: ['127.0.0.1:3000', '192.168.56.101:3000'],
+      backend_ip_list: ['127.0.0.1:3000', debuggingServer],
       status: 'active',
       rate_limit: 1000,
       timeout: 30,
@@ -136,7 +138,7 @@ async function initApiData() {
       path: '/api/user/list',
       method: 'GET',
       backend_uri: '/api/user/list',
-      backend_ip_list: ['127.0.0.1:3000', '192.168.56.101:3000'],
+      backend_ip_list: ['127.0.0.1:3000', debuggingServer],
       status: 'active',
       rate_limit: 1000,
       timeout: 30,
@@ -149,7 +151,7 @@ async function initApiData() {
       path: '/api/user/create',
       method: 'POST',
       backend_uri: '/api/user/create',
-      backend_ip_list: ['127.0.0.1:3000', '192.168.56.101:3000'],
+      backend_ip_list: ['127.0.0.1:3000', debuggingServer],
       status: 'active',
       rate_limit: 100,
       timeout: 30,
@@ -162,7 +164,7 @@ async function initApiData() {
       path: '/api/system/status',
       method: 'GET',
       backend_uri: '/api/system/status',
-      backend_ip_list: ['127.0.0.1:3000', '192.168.56.101:3000'],
+      backend_ip_list: ['127.0.0.1:3000', debuggingServer],
       status: 'active',
       rate_limit: 2000,
       timeout: 30,
@@ -175,7 +177,7 @@ async function initApiData() {
       path: '/health',
       method: 'GET',
       backend_uri: '/health',
-      backend_ip_list: ['127.0.0.1:3000', '192.168.56.101:3000'],
+      backend_ip_list: ['127.0.0.1:3000', debuggingServer],
       status: 'active',
       rate_limit: 5000,
       timeout: 10,
@@ -188,7 +190,7 @@ async function initApiData() {
       path: '/api/user/update',
       method: 'PUT',
       backend_uri: '/api/user/update',
-      backend_ip_list: ['127.0.0.1:3000', '192.168.56.101:3000'],
+      backend_ip_list: ['127.0.0.1:3000', debuggingServer],
       status: 'active',
       rate_limit: 100,
       timeout: 30,
@@ -201,7 +203,7 @@ async function initApiData() {
       path: '/api/user/delete',
       method: 'DELETE',
       backend_uri: '/api/user/delete',
-      backend_ip_list: ['127.0.0.1:3000', '192.168.56.101:3000'],
+      backend_ip_list: ['127.0.0.1:3000', debuggingServer],
       status: 'active',
       rate_limit: 100,
       timeout: 30,

@@ -13,12 +13,17 @@ const CONFIG = {
   sm4_iv: "your_sm4_iv_here", // 32字符十六进制字符串
 };
 
+// 从环境变量获取Redis配置，如果没有则使用默认值
+const REDIS_HOST = process.env.REDIS_HOST || '192.168.17.1';
+const REDIS_PORT = process.env.REDIS_PORT || '6379';
+
+
 // 从Redis获取App配置
 async function getAppConfigFromRedis(appid) {
   const Redis = require("ioredis");
   const redisClient = new Redis({
-    host: "192.168.56.2",
-    port: 6379,
+    host: REDIS_HOST,
+    port: REDIS_PORT,
     retryDelayOnFailover: 100,
     enableReadyCheck: false,
     maxRetriesPerRequest: null,

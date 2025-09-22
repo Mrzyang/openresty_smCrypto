@@ -15,7 +15,7 @@ const { requestLogger, logError } = require('./logger');
 const app = express();
 
 // 从环境变量获取Redis配置，如果没有则使用默认值
-const REDIS_HOST = process.env.REDIS_HOST || '192.168.56.2';
+const REDIS_HOST = process.env.REDIS_HOST || '192.168.17.1';
 const REDIS_PORT = process.env.REDIS_PORT || '6379';
 // Redis客户端
 const redisClient = new Redis({

@@ -5,7 +5,7 @@ local cjson = require "cjson"
 local _M = {}
 
 -- 从环境变量获取Redis连接配置，如果没有则使用默认值
-local REDIS_HOST = os.getenv("REDIS_HOST") or "192.168.56.2"
+local REDIS_HOST = os.getenv("REDIS_HOST") or "192.168.17.1"
 local REDIS_PORT = tonumber(os.getenv("REDIS_PORT")) or 6379
 local REDIS_TIMEOUT = 1000 -- 1秒超时
 

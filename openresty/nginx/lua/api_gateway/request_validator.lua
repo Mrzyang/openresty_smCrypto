@@ -3,7 +3,6 @@ local redis_utils = require "redis_utils"
 local sm_crypto_utils = require "gm_sm_crypto_utils"
 local context = require "context"
 local cjson = require "cjson"
-local ngx_re = require "ngx.re"
 
 local _M = {}
 

@@ -21,7 +21,8 @@ if jit.os == 'Windows' then
     libName = libName .. '-windows-x64'
 end
 
-local C = ffi.load("/opt/zy/software/openresty/nginx/lua/lib/so/" .. libName .. "." .. libType)
+local OPENRESTY_HOME = '/opt/zy/software/openresty'
+local C = ffi.load(OPENRESTY_HOME .. '/lualib/' .. libName .. "." .. libType)
 
 ffi.cdef [[  
     char *sm3Hash(const unsigned char *message);
