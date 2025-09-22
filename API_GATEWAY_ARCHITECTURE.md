@@ -95,28 +95,57 @@ TTL: 300秒 (5分钟)
 POST /api/user/info
 Headers:
   X-App-ID: app_001
-  X-Signature: base64_encoded_signature
+  X-Signature: sm2_signature
   X-Nonce: 1234567890
   X-Timestamp: 1640995200
   Content-Type: application/json
-Body: sm4_encrypted_data
+Body: sm4_encrypted_data_base64Encoded
+
+请求头：
+{
+  'X-App-ID': 'app_001',
+  'X-Signature': '3044022010ff65543cdf52ad715e6286dc703a563f156722f7a03451f86736ea99d3a6810220652852a5b37cfc7680a80f16d1d5418016721bcebf3fe5d6cabbb67db89d485f',
+  'X-Nonce': '25341693981758551376',
+  'X-Timestamp': '1758551376',
+  'Content-Type': 'application/octet-stream'
+}
 ```
 
 ### 2. 网关处理流程
 1. 验证App ID存在且状态为active
 2. 验证IP白名单
 3. 验证防重放参数(nonce)
-4. 验证签名
-5. 解密请求体
+4. 解密请求体
+5. 验证签名
 6. 转发到后端服务
 7. 加密响应体
 8. 对响应体签名
 9. 返回给客户端
 
-### 3. 签名算法
+### 3. 网关响应头
 ```
-待签名数据 = method + uri + query_string + body + nonce + timestamp
-签名 = SM2(SM3(待签名数据), private_key)
+{
+  server: 'openresty/1.27.1.2',
+  date: 'Mon, 22 Sep 2025 14:29:37 GMT',
+  'content-type': 'application/octet-stream',
+  connection: 'keep-alive',
+  'x-response-signature': '30450220582f74601334d534109c7b042709e252c59e5c65a49f4034ea037a99be257b2502210088a285d454c8cdfd4758e778a2da36bdb76cc589e1716de3fa2f2a23d1968821',
+  'content-length': '728',
+  'x-encrypted': 'true'
+}
+
+```
+
+### 4. 签名算法
+```
+待签名数据 = method + uri + query_string + body明文 + nonce + timestamp
+签名 = SM2((待签名数据，即body明文), private_key) 包含sm3杂凑和ASN.1 DER编码
+```
+
+### 5. 加密算法
+```
+待加密数据 = body明文
+加密 = base64_encode(sm4-cbc(body, key, iv))
 ```
 
 ## 安全特性
@@ -124,8 +153,8 @@ Body: sm4_encrypted_data
 1. **国密算法**: SM2签名、SM3哈希、SM4对称加密
 2. **防重放攻击**: 基于nonce和timestamp的防重放机制
 3. **IP白名单**: 限制访问来源
-4. **签名验证**: 确保请求完整性和来源可信
-5. **加密传输**: 请求和响应经过SM4加密
+4. **签名验证**: 确保请求完整性和来源可信(后端服务响应状态码为200时网关才加签)
+5. **加密传输**: 请求和响应经过SM4加密(后端服务响应状态码为200时网关才加密报文)
 
 ## 管理功能
 
