@@ -9,6 +9,7 @@ const sm3 = smCrypto.sm3;
 const sm4 = smCrypto.sm4;
 const fs = require('fs');
 const path = require('path');
+const { requestLogger, logError } = require('./logger');
 
 // 创建 Express 应用
 const app = express();
@@ -23,7 +24,7 @@ const redisClient = new Redis({
 });
 
 redisClient.on('error', (err) => {
-  console.error('Redis Client Error:', err);
+  logError(`Redis Client Error: ${err}`);
 });
 
 redisClient.on('connect', () => {
@@ -37,16 +38,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // 添加请求日志中间件
-app.use((req, res, next) => {
-  console.log(`=== 收到请求 ===`);
-  console.log(`方法: ${req.method}`);
-  console.log(`URL: ${req.url}`);
-  console.log(`请求头:`, req.headers);
-  console.log(`请求体:`, req.body);
-  console.log(`请求体类型:`, typeof req.body);
-  console.log(`请求体是否为Buffer:`, Buffer.isBuffer(req.body));
-  next();
-});
+app.use(requestLogger);
 
 // 健康检查
 app.get('/health', (req, res) => {
@@ -173,7 +165,7 @@ app.post('/api/secure/data', (req, res) => {
             decryptedData
         });
     } catch (error) {
-        console.error('解密失败:', error);
+        logError(`解密失败: ${error.message}`);
         return res.status(400).json({
             success: false,
             message: '解密失败',
@@ -202,7 +194,7 @@ app.post('/api/verify/signature', (req, res) => {
             isValid
         });
     } catch (error) {
-        console.error('签名验证失败:', error);
+        logError(`签名验证失败: ${error.message}`);
         return res.status(400).json({
             success: false,
             message: '签名验证失败',
@@ -233,7 +225,7 @@ app.post('/api/encrypt/response', (req, res) => {
             encryptedData
         });
     } catch (error) {
-        console.error('加密失败:', error);
+        logError(`加密失败: ${error.message}`);
         return res.status(400).json({
             success: false,
             message: '加密失败',
@@ -305,7 +297,7 @@ app.post('/api/test/replay-protection', (req, res) => {
 
 // 错误处理中间件
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  logError(`Error: ${err.message}\nStack: ${err.stack}`);
   res.status(500).json({
     code: 500,
     message: 'Internal Server Error',

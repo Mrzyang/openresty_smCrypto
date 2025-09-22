@@ -142,6 +142,26 @@ function _M.validate_api_subscription(appid, uri, method)
     return true, api_config
 end
 
+-- 验证请求体是否为空（除GET请求外）
+function _M.validate_request_body(method, body, decrypted_body)
+    -- GET请求不需要检查请求体
+    if method == "GET" then
+        return true
+    end
+    
+    -- 检查原始请求体是否为空
+    if not body or body == "" then
+        return false, "Request body is required for " .. method .. " requests"
+    end
+    
+    -- 检查解密后的请求体是否为空
+    if not decrypted_body or decrypted_body == "" then
+        return false, "Decrypted request body is empty for " .. method .. " requests"
+    end
+    
+    return true
+end
+
 -- 验证请求
 function _M.validate_request(appid, method, uri, query_string, body, headers)
     -- 检查headers是否为nil
@@ -216,6 +236,12 @@ function _M.validate_request(appid, method, uri, query_string, body, headers)
         
         -- 保存解密后的请求体
         decrypted_body = decrypt_result
+    end
+    
+    -- 验证请求体是否为空（除GET请求外）
+    local body_valid, body_err = _M.validate_request_body(method, body, decrypted_body)
+    if not body_valid then
+        return false, body_err
     end
     
     -- 验证IP白名单

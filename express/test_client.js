@@ -94,6 +94,32 @@ function decryptResponseBody(encryptedBody, key, iv) {
   }
 }
 
+// 验证响应签名
+function verifyResponseSignature(body, signature, publicKey) {
+  if (!signature || !publicKey) {
+    console.log("响应签名或公钥为空，跳过验签");
+    return true;
+  }
+
+  try {
+    console.log("响应验签数据:", body);
+    console.log("响应签名:", signature);
+    console.log("网关公钥:", publicKey);
+
+    // 验证签名 (使用十六进制格式的公钥，启用SM3杂凑和DER编码)
+    const is_valid = sm2.doVerifySignature(body, signature, publicKey, {
+      hash: true,
+      der: true
+    });
+
+    console.log("响应签名验证结果:", is_valid);
+    return is_valid;
+  } catch (error) {
+    console.error("响应签名验证过程中发生错误:", error.message);
+    return false;
+  }
+}
+
 // 生成nonce
 function generateNonce() {
   // 生成 20 位纯数字：10 位随机数 + 10 位秒级时间戳，满足网关 10-20 位要求
@@ -189,7 +215,9 @@ async function sendApiRequest(method, path, body = "", queryString = "") {
     const xEncrypted =
       response.headers &&
       (response.headers["x-encrypted"] === "true" ||
+        response.headers["X-encrypted"] === "true" ||
         response.headers["X-Encrypted"] === "true");
+    
     if (xEncrypted) {
       decryptedBody = decryptResponseBody(
         response.data,
@@ -202,7 +230,26 @@ async function sendApiRequest(method, path, body = "", queryString = "") {
           ? response.data
           : JSON.stringify(response.data);
     }
-    console.log("解密后响应体:", decryptedBody);
+
+    // 对于200状态码的响应，验证网关签名
+    if (response.status === 200) {
+      const responseSignature = response.headers["x-response-signature"] || 
+                               response.headers["X-Response-Signature"] ||
+                               response.headers["X-response-signature"];
+      
+      const isSignatureValid = verifyResponseSignature(
+        decryptedBody,
+        responseSignature,
+        CONFIG.gateway_sm2_public_key
+      );
+      
+      if (!isSignatureValid) {
+        console.error("响应签名验证失败!");
+        throw new Error("Response signature verification failed");
+      } else {
+        console.log("响应签名验证通过");
+      }
+    }
 
     console.log("==================\n");
 
@@ -353,5 +400,6 @@ module.exports = {
   buildSignatureData,
   encryptRequestBody,
   decryptResponseBody,
+  verifyResponseSignature,
   getAppConfigFromRedis,
 };
