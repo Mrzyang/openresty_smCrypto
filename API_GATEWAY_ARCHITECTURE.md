@@ -133,7 +133,6 @@ Body: sm4_encrypted_data_base64Encoded
   'content-length': '728',
   'x-encrypted': 'true'
 }
-
 ```
 
 ### 4. 签名算法

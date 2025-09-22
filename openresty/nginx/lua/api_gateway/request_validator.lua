@@ -60,24 +60,26 @@ function _M.validate_nonce(nonce, appid)
     end
     
     -- 检查nonce是否已存在（防重放攻击）
-    local exists, err = redis_utils.exists("nonce:" .. appid .. ":" .. nonce)
+    local is_used, err = redis_utils.is_nonce_used(appid, nonce)
     if err then
         ngx.log(ngx.ERR, "检查nonce时发生错误: ", err)
         return false, "Internal server error"
     end
     
-    if exists then
+    if is_used then
+        ngx.log(ngx.WARN, "Nonce已被使用，可能是重放攻击: ", appid, ":", nonce)
         return false, "Nonce already used"
     end
     
-    -- 存储nonce，设置过期时间
+    -- 存储nonce到防重放缓存，设置过期时间为5分钟
     local window_seconds = 300 -- 5分钟
-    local ok, err = redis_utils.set("nonce:" .. appid .. ":" .. nonce, "1", "EX", window_seconds)
+    local ok, err = redis_utils.set_nonce_used(appid, nonce, window_seconds)
     if not ok then
-        ngx.log(ngx.ERR, "存储nonce时发生错误: ", err)
+        ngx.log(ngx.ERR, "存储nonce到防重放缓存时发生错误: ", err)
         return false, "Internal server error"
     end
     
+    ngx.log(ngx.DEBUG, "Nonce验证通过并已存储到防重放缓存: nonce:", appid, ":", nonce)
     return true
 end
 

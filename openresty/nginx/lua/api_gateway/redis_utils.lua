@@ -147,37 +147,49 @@ function _M.get_app_subscriptions(appid)
     return subscriptions
 end
 
--- 检查nonce是否已使用
+-- 检查nonce是否已使用（防重放缓存）
 function _M.is_nonce_used(appid, nonce)
     local red, err = _M.get_redis_connection()
     if not red then
         return nil, err
     end
     
-    local res, err = red:get("nonce:" .. appid .. ":" .. nonce)
+    -- 按照架构文档的设计使用 nonce:{appid}:{nonce} 作为键
+    local key = "nonce:" .. appid .. ":" .. nonce
+    local res, err = red:exists(key)
     _M.close_redis_connection(red)
     
     if not res then
         return nil, err
     end
     
-    return res ~= ngx.null
+    -- 返回 nonce 是否已存在（true=已使用，false=未使用）
+    return res > 0
 end
 
--- 设置nonce已使用
+-- 设置nonce已使用（防重放缓存）
 function _M.set_nonce_used(appid, nonce, ttl)
     local red, err = _M.get_redis_connection()
     if not red then
         return nil, err
     end
     
-    local ok, err = red:setex("nonce:" .. appid .. ":" .. nonce, ttl or 300, ngx.time())
+    -- 按照架构文档的设计：
+    -- Key: nonce:{appid}:{nonce}
+    -- Value: timestamp (Unix时间戳)
+    -- TTL: 300秒 (5分钟)
+    local key = "nonce:" .. appid .. ":" .. nonce
+    local timestamp = ngx.time() -- 当前 Unix 时间戳
+    local ttl_seconds = ttl or 300 -- 默认 5 分钟
+    
+    local ok, err = red:setex(key, ttl_seconds, timestamp)
     _M.close_redis_connection(red)
     
     if not ok then
         return nil, err
     end
     
+    ngx.log(ngx.DEBUG, "防重放缓存已存储: ", key, " = ", timestamp, " (TTL: ", ttl_seconds, "s)")
     return true
 end
 
