@@ -106,6 +106,42 @@ update_redis_utils() {
     log_info "Redis configuration updated successfully"
 }
 
+# 修改gmCryptor Lua文件中的OPENRESTY_HOME
+update_gm_cryptor_files() {
+    local gm_c_file="$PROJECT_DIR/openresty/lualib/gmCryptor-c.lua"
+    local gm_go_file="$PROJECT_DIR/openresty/lualib/gmCryptor-go.lua"
+    
+    log_info "Updating gmCryptor Lua files..."
+    
+    # 更新gmCryptor-c.lua
+    if [ -f "$gm_c_file" ]; then
+        # 备份原文件
+        cp "$gm_c_file" "${gm_c_file}.bak"
+        
+        # 更新OPENRESTY_HOME变量
+        sed -i "s|local OPENRESTY_HOME = .*|local OPENRESTY_HOME = '$OPENRESTY_HOME'|" "$gm_c_file"
+        
+        log_info "Updated gmCryptor-c.lua with OPENRESTY_HOME: $OPENRESTY_HOME"
+    else
+        log_warn "gmCryptor-c.lua not found: $gm_c_file"
+    fi
+    
+    # 更新gmCryptor-go.lua
+    if [ -f "$gm_go_file" ]; then
+        # 备份原文件
+        cp "$gm_go_file" "${gm_go_file}.bak"
+        
+        # 更新OPENRESTY_HOME变量
+        sed -i "s|local OPENRESTY_HOME = .*|local OPENRESTY_HOME = '$OPENRESTY_HOME'|" "$gm_go_file"
+        
+        log_info "Updated gmCryptor-go.lua with OPENRESTY_HOME: $OPENRESTY_HOME"
+    else
+        log_warn "gmCryptor-go.lua not found: $gm_go_file"
+    fi
+    
+    log_info "gmCryptor Lua files updated successfully"
+}
+
 # 初始化Redis数据
 init_redis_data() {
     log_info "Initializing Redis data..."
@@ -209,6 +245,7 @@ main() {
     if [ "$redis_only" = false ]; then
         update_api_gateway_conf
         update_redis_utils
+        update_gm_cryptor_files
     fi
     
     # 初始化Redis数据
@@ -218,6 +255,9 @@ main() {
     
     log_info "API Gateway initialization completed successfully!"
     log_info "Configuration files have been updated with values from .env"
+    log_info "- API gateway configuration updated"
+    log_info "- Redis configuration updated"
+    log_info "- gmCryptor Lua files updated with OPENRESTY_HOME"
     log_info "Redis data has been initialized"
 }
 
