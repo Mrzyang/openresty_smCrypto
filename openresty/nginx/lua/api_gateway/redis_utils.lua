@@ -1,4 +1,4 @@
--- 优化的Redis工具模块，使用共享字典缓存App配置
+-- 优化的Redis工具模块，移除缓存机制，每次都从Redis获取最新数据
 local redis = require "resty.redis"
 local cjson = require "cjson"
 
@@ -8,7 +8,6 @@ local _M = {}
 local REDIS_HOST = "192.168.56.2"
 local REDIS_PORT = 6379
 local REDIS_TIMEOUT = 1000 -- 1秒超时
-local CACHE_TTL = 300 -- 5分钟缓存时间
 
 -- Redis连接池配置
 local REDIS_KEEPALIVE_TIMEOUT = 60000 -- 60秒
@@ -63,42 +62,18 @@ local function fetch_app_config_from_redis(appid)
     return app_config
 end
 
--- 获取App配置（带缓存）
+-- 获取App配置（无缓存，每次都从Redis获取）
 function _M.get_app_config(appid)
-    ngx.log(ngx.DEBUG, "------------appid: ", appid)
+    ngx.log(ngx.DEBUG, "从Redis获取App配置: ", appid)
     -- 确保appid是字符串类型
     if not appid or type(appid) ~= "string" then
         return nil, "Invalid appid: must be a string, got " .. type(appid)
     end
     
-    -- 尝试从共享字典获取缓存
-    local cache = ngx.shared.app_config_cache
-    if cache then
-        local cached_config, flags = cache:get("app:" .. appid)
-        if cached_config then
-            local ok, app_config = pcall(cjson.decode, cached_config)
-            if ok then
-                ngx.log(ngx.DEBUG, "App config retrieved from cache")
-                return app_config
-            else
-                ngx.log(ngx.WARN, "Failed to decode cached app config, fetching from Redis")
-            end
-        end
-    end
-    
-    -- 从Redis获取
+    -- 直接从Redis获取
     local app_config, err = fetch_app_config_from_redis(appid)
     if not app_config then
         return nil, err
-    end
-    
-    -- 存储到共享字典缓存
-    if cache then
-        local encoded_config = cjson.encode(app_config)
-        local ok, err = cache:set("app:" .. appid, encoded_config, CACHE_TTL)
-        if not ok then
-            ngx.log(ngx.WARN, "Failed to cache app config: ", err)
-        end
     end
     
     return app_config

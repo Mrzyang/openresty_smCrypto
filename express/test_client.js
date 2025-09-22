@@ -157,6 +157,7 @@ async function sendApiRequest(method, path, body = "", queryString = "") {
     console.log("原始请求体:", body);
     console.log("加密后请求体:", encryptedBody);
     console.log("签名数据:", dataToSign);
+    console.log("SM2 私钥:", CONFIG.sm2_private_key);
     console.log("签名:", signature);
     console.log("=====================================\n");
 

@@ -172,22 +172,19 @@ function _M.validate_request(appid, method, uri, query_string, body, headers)
     local app_config, err
     local decrypted_body = nil
     
+    -- 直接从Redis获取App配置，不再使用缓存
+    app_config, err = redis_utils.get_app_config(appid)
+    if not app_config then
+        ngx.log(ngx.ERR, "获取App配置失败: ", err)
+        return false, "Invalid appid"
+    end
+    
     -- 如果提供了防重放参数，则进行验证
     if nonce and timestamp then
         -- 转换时间戳为数字
         timestamp = tonumber(timestamp)
         if not timestamp then
             return false, "Invalid timestamp"
-        end
-        
-        -- 优先从上下文获取App配置，如果没有则从Redis获取
-        app_config = context.get_app_config()
-        if not app_config then
-            app_config, err = redis_utils.get_app_config(appid)
-            if not app_config then
-                ngx.log(ngx.ERR, "获取App配置失败: ", err)
-                return false, "Invalid appid"
-            end
         end
         
         -- 验证时间戳
@@ -211,16 +208,6 @@ function _M.validate_request(appid, method, uri, query_string, body, headers)
         decrypted_body = decrypt_result
     else
         -- 如果没有提供防重放参数，则只验证签名（使用空字符串作为nonce和0作为timestamp来构建签名数据）
-        -- 优先从上下文获取App配置，如果没有则从Redis获取
-        app_config = context.get_app_config()
-        if not app_config then
-            app_config, err = redis_utils.get_app_config(appid)
-            if not app_config then
-                ngx.log(ngx.ERR, "获取App配置失败: ", err)
-                return false, "Invalid appid"
-            end
-        end
-        
         -- 验证签名
         local sign_valid, decrypt_result = _M.validate_signature(app_config, method, uri, query_string, body, "", 0, signature)
         if not sign_valid then

@@ -66,20 +66,17 @@ function _M.handle_request()
         return
     end
     
-    -- 设置上下文中的App配置和API配置，供其他模块使用
-    context.set_app_config(result.app_config)
-    
     -- 获取解密后的请求体
-    local decrypted_body = result.decrypted_body
-    ngx.log(ngx.DEBUG, "解密后的请求体: ", decrypted_body)
-    ngx.log(ngx.DEBUG, "解密后请求体大小: ", decrypted_body and #decrypted_body or 0)
+    local forward_body = result.decrypted_body
+    ngx.log(ngx.DEBUG, "解密后的请求体: ", forward_body)
+    ngx.log(ngx.DEBUG, "解密后请求体大小: ", forward_body and #forward_body or 0)
     -- 添加更多调试信息
-    if decrypted_body then
-        ngx.log(ngx.DEBUG, "解密后请求体类型: ", type(decrypted_body))
+    if forward_body then
+        ngx.log(ngx.DEBUG, "解密后请求体类型: ", type(forward_body))
         -- 只记录前100个字符，避免日志过大
-        local display_body = decrypted_body
-        if #decrypted_body > 100 then
-            display_body = string.sub(decrypted_body, 1, 100) .. "...(truncated)"
+        local display_body = forward_body
+        if #forward_body > 100 then
+            display_body = string.sub(forward_body, 1, 100) .. "...(truncated)"
         end
         ngx.log(ngx.DEBUG, "解密后请求体内容(前100字符): ", display_body)
     end
@@ -127,7 +124,7 @@ function _M.handle_request()
     backend_headers["Content-Type"] = "application/json"
     
     -- 获取要转发的请求体
-    local proxy_body = decrypted_body
+    local proxy_body = forward_body
     if proxy_body == nil then
         proxy_body = ""
     end

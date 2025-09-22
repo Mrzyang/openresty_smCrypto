@@ -7,16 +7,17 @@
 - **国密算法支持**: 使用SM2、SM3、SM4算法进行签名、哈希和加密
 - **安全防护**: 防重放攻击、IP白名单、签名验证
 - **高性能**: 基于OpenResty和LuaJIT的高性能网关
-- **灵活配置**: 支持App管理、API订阅、动态配置
+- **实时配置**: 无缓存设计，所有配置实时从Redis获取
 - **监控统计**: 完整的请求日志和统计信息
 
 ## 系统架构
 
-```
-客户端 -> OpenResty API网关(8082) -> Express后端服务(3000)
-         |                           |
-         v                           v
-      Redis缓存                   Redis存储
+```mermaid
+graph TD
+    A[客户端] --> B(OpenResty API网关:8082)
+    B --> C(Express后端服务:3000)
+    B --> D[(Redis存储)]
+    C --> D
 ```
 
 ## 快速部署
@@ -94,6 +95,30 @@ cd /opt/zy/software/scripts
 3. **IP白名单**: 限制访问来源
 4. **签名验证**: 确保请求完整性和来源可信
 5. **加密传输**: 请求和响应都经过SM4加密
+6. **实时配置**: 无缓存设计，配置变更立即生效
+
+## 实时配置
+
+API网关采用无缓存设计，所有配置信息（包括App信息、API信息、订阅关系等）都实时从Redis获取：
+
+### 1. 配置实时生效
+
+当Redis中的配置发生变化时，网关会在下一次请求中立即使用新配置，无需任何延迟或重启操作。
+
+### 2. 密钥轮换
+
+```bash
+# 更新App密钥
+cd /opt/zy/software/express
+node test_key_rotation.js update app_001
+
+# 发送测试请求验证新密钥立即生效
+node test_client.js single POST /api/user/create '{"name":"Test User","email":"test@example.com"}'
+```
+
+### 3. 配置更新
+
+所有配置变更（如API路径修改、订阅关系调整等）都会在下一次请求中立即生效。
 
 ## 使用示例
 
@@ -142,6 +167,12 @@ tail -f /opt/zy/software/openresty/nginx/logs/api_gateway_access.log
    tail -f /opt/zy/software/express/backend.log
    ```
 
+4. **签名验证失败**
+   ```bash
+   # 检查密钥是否一致
+   node test_key_rotation.js show app_001
+   ```
+
 ## 项目结构
 
 ```
@@ -156,6 +187,7 @@ express/
 ├── index.js                 # 后端服务
 ├── test_client.js           # 测试客户端
 ├── init_redis_data.js       # Redis数据初始化
+├── test_key_rotation.js     # 密钥轮换测试
 └── package.json             # 依赖配置
 
 scripts/
