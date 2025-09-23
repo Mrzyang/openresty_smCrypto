@@ -15,7 +15,7 @@ const CONFIG = {
 };
 
 // 从环境变量获取Redis配置，如果没有则使用默认值
-const REDIS_HOST = process.env.REDIS_HOST || '192.168.17.1';
+const REDIS_HOST = process.env.REDIS_HOST || '192.168.110.48';
 const REDIS_PORT = process.env.REDIS_PORT || '6379';
 
 // 生成测试用的SM2密钥对

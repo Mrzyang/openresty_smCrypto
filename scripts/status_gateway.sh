@@ -21,7 +21,7 @@ else
     EXPRESS_HOME="/opt/zy/software/express"
     GATEWAY_PORT="8082"
     BACKEND_PORT="3000"
-    REDIS_HOST="192.168.17.1"
+    REDIS_HOST="192.168.110.48"
     REDIS_PORT="6379"
 fi
 

@@ -2,6 +2,7 @@
 local request_validator = require "request_validator"
 local response_handler = require "response_handler"
 local redis_utils = require "redis_utils"
+local rate_limiter = require "rate_limiter"
 local context = require "context"
 local cjson = require "cjson"
 local http = require "resty.http"
@@ -18,13 +19,30 @@ function _M.handle_request()
     -- 获取请求头
     local headers = ngx.req.get_headers()
     local appid = headers["X-App-ID"]
+    ngx.log(ngx.DEBUG, "App ID: ", appid)
+
+    --  根据客户端请求的uri获取到redis中api配置信息
+    local api_config, err = redis_utils.get_api_config_by_path(uri)
+    if not api_config then
+        ngx.log(ngx.ERR, "无法从Redis获取API配置: ", err)
+        ngx.status = 502
+        ngx.say('{"error":"Failed to get API config"}')
+        return
+    end
+    
+    -- 检查流量控制
+    local rate_allowed, rate_err = rate_limiter.check_rate_limit(api_config, appid)
+    if not rate_allowed then
+        ngx.status = 429
+        ngx.say('{"error":"' .. rate_err .. '","code":429}')
+        return
+    end
     
     -- 读取请求体
     ngx.req.read_body()
     local body = ngx.req.get_body_data()
     
     ngx.log(ngx.DEBUG, "接收到请求: ", method, " ", uri)
-    ngx.log(ngx.DEBUG, "App ID: ", appid)
     ngx.log(ngx.DEBUG, "请求体大小: ", body and #body or 0)
     if body then
         ngx.log(ngx.DEBUG, "请求体内容: ", body)
@@ -80,16 +98,9 @@ function _M.handle_request()
         end
         ngx.log(ngx.DEBUG, "解密后请求体内容(前100字符): ", display_body)
     end
-    
-    -- 2. 根据客户端请求的uri匹配到redis中的backend_uri和backend_ip_list
-    local api_config, err = redis_utils.get_api_config_by_path(uri)
-    if not api_config then
-        ngx.log(ngx.ERR, "无法从Redis获取API配置: ", err)
-        ngx.status = 502
-        ngx.say('{"error":"Failed to get API config"}')
-        return
-    end
-    
+    ---------------------------------------
+
+    -----------------------------------------
     -- 获取后端URI
     local backend_uri = api_config.backend_uri
     if not backend_uri then
@@ -259,8 +270,8 @@ function _M.get_app_info()
     end
     
     -- 隐藏敏感信息
-    app_config.sm2_private_key = nil
     app_config.sm2_public_key = nil
+    app_config.gateway_sm2_private_key = nil
     app_config.sm4_key = nil
     app_config.sm4_iv = nil
     
@@ -270,14 +281,14 @@ end
 
 -- 管理接口 - 获取API信息
 function _M.get_api_info()
-    local api_id = ngx.var.arg_api_id
-    if not api_id then
+    local uri = ngx.var.arg_uri
+    if not uri then
         ngx.status = 400
-        ngx.say('{"error":"Missing api_id parameter"}')
+        ngx.say('{"error":"Missing uri parameter"}')
         return
     end
     
-    local api_config, err = redis_utils.get_api_config(api_id)
+    local api_config, err = redis_utils.get_api_config_by_path(uri)
     if not api_config then
         ngx.status = 404
         ngx.say('{"error":"API not found"}')

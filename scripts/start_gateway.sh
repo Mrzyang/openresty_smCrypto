@@ -19,7 +19,7 @@ else
     # 默认配置
     OPENRESTY_HOME="/opt/zy/software/openresty"
     EXPRESS_HOME="/opt/zy/software/express"
-    REDIS_HOST="192.168.17.1"
+    REDIS_HOST="192.168.110.48"
     REDIS_PORT="6379"
     GATEWAY_PORT="8082"
     BACKEND_PORT="3000"

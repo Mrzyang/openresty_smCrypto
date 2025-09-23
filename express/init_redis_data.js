@@ -3,11 +3,11 @@ const Redis = require('ioredis');
 const sm2 = require('sm-crypto').sm2;
 
 // 从环境变量获取Redis配置，如果没有则使用默认值
-const REDIS_HOST = process.env.REDIS_HOST || '192.168.17.1';
+const REDIS_HOST = process.env.REDIS_HOST || '192.168.110.48';
 const REDIS_PORT = process.env.REDIS_PORT || '6379';
 
 // 配置用于本地调试的后端服务器，会初始化在redis中
-const debuggingServer = "192.168.17.1:3000"
+const debuggingServer = "192.168.110.48:3000"
 
 // Redis连接
 const client = new Redis({
@@ -127,7 +127,8 @@ async function initApiData() {
       backend_uri: '/api/user/info',
       backend_ip_list: ['127.0.0.1:3000', debuggingServer],
       status: 'active',
-      rate_limit: 1000,
+      rate_limit: 1000,        // 每秒请求限制
+      rate_burst: 2000,        // 突发请求限制
       timeout: 30,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -140,7 +141,8 @@ async function initApiData() {
       backend_uri: '/api/user/list',
       backend_ip_list: ['127.0.0.1:3000', debuggingServer],
       status: 'active',
-      rate_limit: 1000,
+      rate_limit: 1000,        // 每秒请求限制
+      rate_burst: 2000,        // 突发请求限制
       timeout: 30,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -153,7 +155,8 @@ async function initApiData() {
       backend_uri: '/api/user/create',
       backend_ip_list: ['127.0.0.1:3000', debuggingServer],
       status: 'active',
-      rate_limit: 100,
+      rate_limit: 100,         // 每秒请求限制
+      rate_burst: 200,         // 突发请求限制
       timeout: 30,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -166,7 +169,8 @@ async function initApiData() {
       backend_uri: '/api/system/status',
       backend_ip_list: ['127.0.0.1:3000', debuggingServer],
       status: 'active',
-      rate_limit: 2000,
+      rate_limit: 2000,        // 每秒请求限制
+      rate_burst: 4000,        // 突发请求限制
       timeout: 30,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -179,7 +183,8 @@ async function initApiData() {
       backend_uri: '/health',
       backend_ip_list: ['127.0.0.1:3000', debuggingServer],
       status: 'active',
-      rate_limit: 5000,
+      rate_limit: 5000,        // 每秒请求限制
+      rate_burst: 10000,       // 突发请求限制
       timeout: 10,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -192,7 +197,8 @@ async function initApiData() {
       backend_uri: '/api/user/update',
       backend_ip_list: ['127.0.0.1:3000', debuggingServer],
       status: 'active',
-      rate_limit: 100,
+      rate_limit: 100,         // 每秒请求限制
+      rate_burst: 200,         // 突发请求限制
       timeout: 30,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -205,7 +211,8 @@ async function initApiData() {
       backend_uri: '/api/user/delete',
       backend_ip_list: ['127.0.0.1:3000', debuggingServer],
       status: 'active',
-      rate_limit: 100,
+      rate_limit: 100,         // 每秒请求限制
+      rate_burst: 200,         // 突发请求限制
       timeout: 30,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()

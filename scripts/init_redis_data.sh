@@ -18,7 +18,7 @@ else
     
     # 默认配置
     EXPRESS_HOME="/opt/zy/software/express"
-    REDIS_HOST="192.168.17.1"
+    REDIS_HOST="192.168.110.48"
     REDIS_PORT="6379"
 fi
 
