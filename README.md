@@ -14,7 +14,7 @@
 
 - **部署操作系统**: Debian12、内核版本6.1.0-37-amd64、ldd (Debian GLIBC 2.36-9+deb12u13) 2.36
 - **中间件版本**: openresty-1.27.1.2（把openssl-1.1.1w、pcre2-10.46、zlib-1.3.1编译进去）、nodejs_v22.17.1
-- **网关国密算法库**: 通过ffi加载基于C语言openssl_v1.1.1编译出来的gmCryptor-c-linux-x64.so或基于CGO语言根据github.com/tjfoc/gmsm v1.4.1编译出来的gmCryptor-go.lua（参考项目https://github.com/seahigh/GMCryptor）;  nodejs的国密算法用 sm-crypto_v0.3.13(参考项目https://github.com/JuneAndGreen/sm-crypto)
+- **网关国密算法库**: 通过ffi加载基于C语言openssl_v1.1.1编译出来的gmCryptor-c-linux-x64.so或基于CGO语言根据github.com/tjfoc/gmsm v1.4.1编译出来的gmCryptor-go.lua（参考项目https://github.com/seahigh/GMCryptor ）;  nodejs的国密算法用 sm-crypto_v0.3.13(参考项目https://github.com/JuneAndGreen/sm-crypto)
 - **签名算法**: sm2+sm3杂凑+ASN.1 DER编码，默认userId值为 1234567812345678，结果为16进制utf8字符串
 - **报文加密算法**: sm4-cbc(需要key和iv，默认使用PKCS7Padding填充)，得到16进制utf8字符串，最后base64编码
 
